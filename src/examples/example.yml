@@ -1,0 +1,17 @@
+description: >
+  The `install` command is used to simplify installation of Helm.
+
+usage:
+  version: 2.1
+  orbs:
+    cosign: juburr/helm-orb@0.0.1
+  jobs:
+    publish-chart:
+      docker:
+        - image: cimg/base:stable
+      steps:
+        - helm/install
+  workflows:
+    use-my-orb:
+      jobs:
+        - publish-chart

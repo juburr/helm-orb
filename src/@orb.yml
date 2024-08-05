@@ -1,0 +1,8 @@
+version: 2.1
+
+description: >
+  Simplifies installation and use of Helm within CircleCI, used to publish Helm charts for use in Kubernetes deployments.
+
+display:
+  home_url: "https://github.com/juburr/helm-orb"
+  source_url: "https://github.com/juburr/helm-orb"
