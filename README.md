@@ -18,4 +18,4 @@ This is an unofficial Helm orb used for installing Helm in your CircleCI pipelin
 
 Info for security teams:
 - Required external access to allow, if running a locked down, self-hosted CircleCI pipeline on-prem:
-  - `github.com`: For download and installation of the Helm tool.
+  - `get.helm.sh`: For download and installation of the Helm tool.
