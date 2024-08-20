@@ -13,10 +13,10 @@ echo "  INSTALL_PATH: ${INSTALL_PATH}"
 echo "  VERIFY_CHECKSUMS: ${VERIFY_CHECKSUMS}"
 echo "  VERSION: ${VERSION}"
 
-
 # Lookup table of sha512 checksums for different versions of helm
 declare -A sha512sums
 sha512sums=(
+    ["3.15.4"]="37a696e9629bd2d088e69130aeace2bc3380dfa5b0f52900346903f3ac6e9e13d47db279f173cd0a6bb8510c33cc1ef9de0fcc53d953079fdc6b5e53d3daf130"
     ["3.15.3"]="93db94da6e385b5b403aded651adc7dd3fcbbfa01d42e39c91f656be929d0bed2f6fc8f9b32a4e1492c0988f32dde82b7cae29eec0ca03543da1d05478e50402"
     ["3.15.2"]="3982086bb493f27fbd78172878945993f12af33ff1daee70c30512790176ee8c3d99a5c0367ae183ed5c47065c542d40aa1582ac907cc181ad86c248c8ff5e05"
     ["3.15.1"]="2bad6de17b687e8ccfcb95b6b435ef467f023f9c52ef129d3be306cd7a662d947dd925d2e52e4ea06869faf9f5ee363156e758d1af24c1f68692260ef58b9087"
