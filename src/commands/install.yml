@@ -14,7 +14,7 @@ parameters:
     description: Option to perform SHA-512 checksum verification on the downloaded Helm executable.
   version:
     type: string
-    default: "3.15.3"
+    default: "3.15.4"
     description: Specify the semver of the Helm version to install.
 steps:
   - when:
