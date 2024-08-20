@@ -15,3 +15,7 @@ This is an unofficial Helm orb used for installing Helm in your CircleCI pipelin
 - **Provenance**: Installs directly from Helm's [official webpage](https://helm.sh/). No third-party websites, domains, or proxies are used.
 - **Confidentiality**: All secrets and environment variables are handled in accordance with CircleCI's [security recommendations](https://circleci.com/docs/security-recommendations/) and [best practices](https://circleci.com/docs/orbs-best-practices/).
 - **Privacy**: No usage data of any kind is collected or shipped back to the orb developer.
+
+Info for security teams:
+- Required external access to allow, if running a locked down, self-hosted CircleCI pipeline on-prem:
+  - `github.com`: For download and installation of the Helm tool.
