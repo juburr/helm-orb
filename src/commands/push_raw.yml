@@ -1,0 +1,25 @@
+description: Uploads a Helm chart to a raw repository, such as one used in Nexus.
+parameters:
+  chart:
+    type: string
+    description: Path to the Helm chart, packaged as a .tgz file.
+  password_env:
+    type: env_var_name
+    description: Environment variable holding the password or token.
+    default: NEXUS_PASSWORD
+  username_env:
+    type: env_var_name
+    description: Environment variable holding the username.
+    default: NEXUS_USER
+  upload_path:
+    type: string
+    description: Path to the raw repository directory.
+steps:
+  - run:
+      environment:
+        PARAM_CHART: << parameters.chart >>
+        PARAM_PASSWORD_ENV: << parameters.password_env >>
+        PARAM_UPLOAD_PATH: << parameters.upload_path >>
+        PARAM_USERNAME_ENV: << parameters.username_env >>
+      name: Push Helm Chart
+      command: <<include(scripts/push_raw.sh)>>

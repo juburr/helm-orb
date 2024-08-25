@@ -1,0 +1,15 @@
+description: Uploads a Helm chart to a registry.
+parameters:
+  chart:
+    type: string
+    description: Path to the Helm chart, packaged as a .tgz file.
+  registry:
+    type: string
+    description: Registry to upload the Helm chart to.
+steps:
+  - run:
+      environment:
+        PARAM_CHART: << parameters.chart >>
+        PARAM_REGISTRY: << parameters.registry >>
+      name: Push Helm Chart
+      command: <<include(scripts/push.sh)>>
