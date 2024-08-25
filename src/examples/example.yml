@@ -8,9 +8,15 @@ usage:
   jobs:
     publish-chart:
       docker:
-        - image: cimg/base:stable
+        - image: cimg/base:current-22.04
       steps:
+        - checkout
         - helm/install
+        - helm/package:
+            app_version: 4.1.2
+            chart_path: helm/myapplication
+            chart_version: 1.0.0
+
   workflows:
     use-my-orb:
       jobs:

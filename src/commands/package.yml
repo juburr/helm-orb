@@ -1,0 +1,29 @@
+description: Packages a Helm chart.
+parameters:
+  app_version:
+    type: string
+    description: "Version of the service or application to install."
+  chart_path:
+    type: string
+    description: "Path to the directory containing the Chart.yaml file."
+  chart_version:
+    type: string
+    description: "Version of the Helm chart itself."
+  env_output_package:
+    type: env_var_name
+    default: "HELM_PACKAGE"
+    description: "Environment variable to populate the final package filename with, for later use."
+  output_directory:
+    type: string
+    default: "."
+    description: Path to the directory to output the final package to.
+steps:
+  - run:
+      environment:
+        PARAM_APP_VERSION: << parameters.app_version >>
+        PARAM_CHART_PATH: << parameters.chart_path >>
+        PARAM_CHART_VERSION: << parameters.chart_version >>
+        PARAM_ENV_OUTPUT_PACKAGE: << parameters.env_output_package >>
+        PARAM_OUTPUT_DIRECTORY: << parameters.output_directory >>
+      name: Package Helm Chart
+      command: <<include(scripts/package.sh)>>
