@@ -3,7 +3,7 @@ parameters:
   app_version:
     type: string
     description: "Version of the service or application to install."
-  chart_path:
+  chart_directory:
     type: string
     description: "Path to the directory containing the Chart.yaml file."
   chart_version:
@@ -21,7 +21,7 @@ steps:
   - run:
       environment:
         PARAM_APP_VERSION: << parameters.app_version >>
-        PARAM_CHART_PATH: << parameters.chart_path >>
+        PARAM_CHART_DIRECTORY: << parameters.chart_directory >>
         PARAM_CHART_VERSION: << parameters.chart_version >>
         PARAM_ENV_OUTPUT_PACKAGE: << parameters.env_output_package >>
         PARAM_OUTPUT_DIRECTORY: << parameters.output_directory >>

@@ -14,9 +14,16 @@ usage:
         - helm/install
         - helm/package:
             app_version: 4.1.2
-            chart_path: helm/myapplication
+            chart_directory: helm/myapplication
             chart_version: 1.0.0
-
+        - helm/push:
+            chart: myapplication-1.0.0.tgz
+            registry: oci://ghcr.io/organization/repository/helm-charts
+        - helm/push_raw:
+            chart: myapplication-1.0.0.tgz
+            username_env: NEXUS_USER
+            password_env: NEXUS_PASSWORD
+            upload_path: https://nexus-server.myorganization.net/repository/my-raw-repo/charts/
   workflows:
     use-my-orb:
       jobs:
