@@ -1,0 +1,27 @@
+description: Locates and returns the file path for a packaged Helm chart (.tgz file).
+parameters:
+  chart_name:
+    type: string
+    default: ""
+    description: The chart name to filter the file results by (optional).
+  chart_version:
+    type: string
+    default: ""
+    description: The version number to filter the file results by (optional).
+  env_output_package:
+    type: env_var_name
+    default: "HELM_PACKAGE"
+    description: Environment variable to populate the final package filename with.
+  search_directory:
+    type: string
+    default: "."
+    description: Directory to search for the packaged helm chart (.tgz file) in
+steps:
+  - run:
+      environment:
+        PARAM_CHART_NAME: << parameters.chart_name >>
+        PARAM_CHART_VERSION: << parameters.chart_version >>
+        PARAM_ENV_OUTPUT_PACKAGE: << parameters.env_output_package >>
+        PARAM_SEARCH_DIRECTORY: << parameters.search_directory >>
+      name: Locate Helm Chart
+      command: <<include(scripts/locate_chart.sh)>>

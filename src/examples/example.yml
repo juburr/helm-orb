@@ -4,7 +4,7 @@ description: >
 usage:
   version: 2.1
   orbs:
-    helm: juburr/helm-orb@0.4.1
+    helm: juburr/helm-orb@0.5.0
   jobs:
     publish-chart:
       docker:
