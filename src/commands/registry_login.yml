@@ -1,0 +1,21 @@
+description: Login to a Helm or OCI compatible registry.
+parameters:
+  password_env:
+    type: env_var_name
+    description: Environment variable holding the password or token.
+    default: GITHUB_TOKEN
+  username_env:
+    type: env_var_name
+    description: Environment variable holding the username.
+    default: GITHUB_USER
+  registry:
+    type: string
+    description: Registry/host to login to.
+steps:
+  - run:
+      environment:
+        PARAM_PASSWORD_ENV: << parameters.password_env >>
+        PARAM_USERNAME_ENV: << parameters.username_env >>
+        PARAM_REGISTRY: << parameters.registry >>
+      name: Helm Registry Login
+      command: <<include(scripts/registry_login.sh)>>

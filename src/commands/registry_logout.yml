@@ -1,0 +1,11 @@
+description: Logout of a Helm or OCI compatible registry.
+parameters:
+  registry:
+    type: string
+    description: Registry/host to login to.
+steps:
+  - run:
+      environment:
+        PARAM_REGISTRY: << parameters.registry >>
+      name: Helm Registry Logout
+      command: <<include(scripts/registry_logout.sh)>>
