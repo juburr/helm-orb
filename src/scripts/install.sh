@@ -123,7 +123,14 @@ fi
 # If there was no cache hit, go ahead and re-download the binary.
 # Tar it up to save on cache space used.
 if [[ ! -f helm ]]; then
-    wget "https://get.helm.sh/helm-v${VERSION}-linux-amd64.tar.gz" -O helm.tar.gz
+    if command -v wget &> /dev/null; then
+        wget "https://get.helm.sh/helm-v${VERSION}-linux-amd64.tar.gz" -O helm.tar.gz
+    elif command -v curl &> /dev/null; then
+        curl -L "https://get.helm.sh/helm-v${VERSION}-linux-amd64.tar.gz" -o helm.tar.gz
+    else
+        echo "ERROR: Neither wget nor curl is available. Please install one of them."
+        exit 1
+    fi
     tar -xvzf helm.tar.gz linux-amd64/helm --strip-components 1
 fi
 
