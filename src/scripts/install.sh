@@ -134,7 +134,7 @@ sha512sums=(
     # TODO: Add checksums for old versions...
 )
 
-# Verfies that the SHA-512 checksum of a file matches what was in the lookup table
+# Verifies that the SHA-512 checksum of a file matches what was in the lookup table
 verify_checksum() {
     local file=$1
     local expected_checksum=$2
@@ -181,14 +181,12 @@ if [[ "${VERIFY_CHECKSUMS}" != "false" ]]; then
         # If the version is in the table, verify the checksum
         verify_checksum "helm" "${EXPECTED_CHECKSUM}"
     else
-        # If the version is not in the table, this means that a new version of Cosign
-        # was released but this orb hasn't been updated yet to include its checksum in
-        # the lookup table. Allow developers to configure if they want this to result in
-        # a hard error, via "strict mode" (recommended), or to allow execution for versions
-        # not directly specified in the above lookup table.
+        # If the version is not in the table, a Helm release exists that this orb
+        # has not yet checksummed. Strict mode fails closed. known_versions allows
+        # that release to run and prints a warning.
         if [[ "${VERIFY_CHECKSUMS}" == "known_versions" ]]; then
             echo "WARN: No checksum available for version ${VERSION}, but strict mode is not enabled."
-            echo "WARN: Either upgrade this orb, submit a PR with the new checksum."
+            echo "WARN: Either upgrade this orb, or submit a PR with the new checksum."
             echo "WARN: Skipping checksum verification..."
         else
             echo "ERROR: No checksum available for version ${VERSION} and strict mode is enabled."
