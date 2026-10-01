@@ -2,7 +2,7 @@ description: Logout of a Helm or OCI compatible registry.
 parameters:
   registry:
     type: string
-    description: Registry/host to logout from.
+    description: Registry hostname to log out from. Use the same host value passed to registry login.
 steps:
   - run:
       environment:

@@ -10,7 +10,9 @@ parameters:
     default: GITHUB_USER
   registry:
     type: string
-    description: Registry/host to login to.
+    description: >
+      Registry hostname to log in to, with an optional port (for example ghcr.io or localhost:5000).
+      Helm 4 accepts a hostname only and rejects a URL scheme or repository path.
 steps:
   - run:
       environment:
