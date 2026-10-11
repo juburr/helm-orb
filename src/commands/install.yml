@@ -20,8 +20,13 @@ steps:
   - when:
       condition: << parameters.caching >>
       steps:
+        # The cached tarball is architecture-specific, so key it on the machine type as well.
+        # {{ arch }} is avoided because it also encodes the CPU model, which fragments the cache.
+        - run:
+            name: Detect Helm Architecture
+            command: uname -m > /tmp/helm-orb-cache-arch
         - restore_cache:
-            key: helm-cache-<< parameters.version >>
+            key: helm-cache-<< parameters.version >>-{{ checksum "/tmp/helm-orb-cache-arch" }}
   - run:
       name: Install Helm
       environment:
@@ -33,7 +38,7 @@ steps:
       condition: << parameters.caching >>
       steps:
         - save_cache:
-            key: helm-cache-<< parameters.version >>
+            key: helm-cache-<< parameters.version >>-{{ checksum "/tmp/helm-orb-cache-arch" }}
             paths:
               - helm.tar.gz
   - run:
