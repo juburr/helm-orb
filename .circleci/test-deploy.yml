@@ -32,6 +32,89 @@ jobs:
       - run:
           name: Verify Install
           command: command -v helm
+  # Runs the orb's Helm commands (install, package, locate_chart, registry_login, push, registry_logout)
+  # under one Helm version against a local registry:2 over plain HTTP. The workflow runs it for a
+  # pinned Helm 3 release and for the install command's default (Helm 4).
+  helm-conformance-test:
+    parameters:
+      helm_version:
+        type: string
+        description: Helm version to install, or "default" to use the install command's default version.
+    docker:
+      - image: cimg/base:current-22.04
+      - image: registry:2
+    environment:
+      CHART_DIR: /tmp/conformance/testchart
+      DIST_DIR: /tmp/conformance/dist
+      REGISTRY_HOST: localhost:5000
+      REGISTRY_USER: ci-user
+      REGISTRY_PASSWORD: ci-password
+    steps:
+      - checkout
+      - when:
+          condition:
+            equal: ["default", << parameters.helm_version >>]
+          steps:
+            - helm-orb/install
+      - unless:
+          condition:
+            equal: ["default", << parameters.helm_version >>]
+          steps:
+            - helm-orb/install:
+                version: << parameters.helm_version >>
+      - run:
+          name: Verify Helm Version
+          command: |
+            EXPECTED_VERSION="<< parameters.helm_version >>"
+            if [[ "${EXPECTED_VERSION}" == "default" ]]; then
+              EXPECTED_VERSION=$(yq '.parameters.version.default' src/commands/install.yml)
+            fi
+            ACTUAL_VERSION=$(helm version --template '{{ .Version }}')
+            echo "Expected v${EXPECTED_VERSION}, installed ${ACTUAL_VERSION}"
+            [[ "${ACTUAL_VERSION}" == "v${EXPECTED_VERSION}" ]]
+      - run:
+          name: Create And Lint Test Chart
+          command: |
+            mkdir -p "$(dirname "${CHART_DIR}")"
+            helm create "${CHART_DIR}"
+            helm lint --strict "${CHART_DIR}"
+      - helm-orb/package:
+          app_version: 1.2.3
+          chart_directory: ${CHART_DIR}
+          chart_version: 0.1.0
+          output_directory: ${DIST_DIR}
+      - helm-orb/locate_chart:
+          chart_name: testchart
+          chart_version: 0.1.0
+          env_output_package: LOCATED_CHART
+          search_directory: ${DIST_DIR}
+      - run:
+          name: Verify Packaged Chart
+          command: |
+            echo "HELM_PACKAGE=${HELM_PACKAGE}"
+            echo "LOCATED_CHART=${LOCATED_CHART}"
+            [[ "${HELM_PACKAGE}" == "${DIST_DIR}/testchart-0.1.0.tgz" ]]
+            [[ "${LOCATED_CHART}" == "${HELM_PACKAGE}" ]]
+            helm show chart "${HELM_PACKAGE}" | grep -x 'appVersion: 1.2.3'
+      - run:
+          name: Wait For Registry
+          command: curl --silent --show-error --fail --retry 30 --retry-delay 1 --retry-connrefused "http://${REGISTRY_HOST}/v2/"
+      - helm-orb/registry_login:
+          registry: ${REGISTRY_HOST}
+          username_env: REGISTRY_USER
+          password_env: REGISTRY_PASSWORD
+          plain_http: true
+      - helm-orb/push:
+          chart: ${LOCATED_CHART}
+          registry: oci://${REGISTRY_HOST}/helm-orb-ci
+          plain_http: true
+      - run:
+          name: Verify Pushed Chart
+          command: |
+            helm show chart --plain-http "oci://${REGISTRY_HOST}/helm-orb-ci/testchart" --version 0.1.0 | tee /tmp/pushed-chart.yaml
+            grep -x 'version: 0.1.0' /tmp/pushed-chart.yaml
+      - helm-orb/registry_logout:
+          registry: ${REGISTRY_HOST}
 
 workflows:
   test-deploy:
@@ -39,6 +122,12 @@ workflows:
       # Make sure to include "filters: *filters" in every test job you want to run as part of your deployment.
       # Test your orb's commands in a custom job and test your orb's jobs directly as a part of this workflow.
       - command-test:
+          filters: *filters
+      - helm-conformance-test:
+          name: helm-conformance-test-<< matrix.helm_version >>
+          matrix:
+            parameters:
+              helm_version: ["3.22.0", "default"]
           filters: *filters
       # The orb must be re-packed for publishing, and saved to the workspace.
       - orb-tools/pack:
@@ -51,5 +140,6 @@ workflows:
           requires:
             - orb-tools/pack
             - command-test
+            - helm-conformance-test
           context: orb-publishing
           filters: *release-filters
