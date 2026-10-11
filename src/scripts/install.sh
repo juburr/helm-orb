@@ -153,6 +153,29 @@ verify_checksum() {
     echo "Checksum verification passed!"
 }
 
+# Decide how this version will be verified before anything is downloaded, so that
+# strict mode fails closed without fetching a binary it cannot verify.
+EXPECTED_CHECKSUM=""
+if [[ "${VERIFY_CHECKSUMS}" != "false" ]]; then
+    EXPECTED_CHECKSUM=${sha512sums[${VERSION}]}
+    if [[ -z "${EXPECTED_CHECKSUM}" ]]; then
+        # If the version is not in the table, a Helm release exists that this orb
+        # has not yet checksummed. Strict mode (the default) fails closed. known_versions
+        # allows that release to run and prints a warning.
+        if [[ "${VERIFY_CHECKSUMS}" == "known_versions" ]]; then
+            echo "WARN: No checksum available for version ${VERSION}, and 'verify_checksums' is set to 'known_versions'."
+            echo "WARN: Either upgrade this orb, or submit a PR with the new checksum."
+            echo "WARN: Skipping checksum verification..."
+        else
+            echo "ERROR: No checksum available for version ${VERSION} and strict mode is enabled."
+            echo "ERROR: Either upgrade this orb, submit a PR with the new checksum, or set 'verify_checksums' to 'known_versions'."
+            exit 1
+        fi
+    fi
+else
+    echo "WARN: Checksum validation is disabled. This is not recommended. Skipping..."
+fi
+
 # Check if the helm tar file was in the CircleCI cache.
 # Cache restoration is handled in install.yml
 if [[ -f helm.tar.gz ]]; then
@@ -175,27 +198,8 @@ fi
 
 # A helm binary should exist at this point, regardless of whether it was obtained
 # through cache or re-downloaded. First verify its integrity.
-if [[ "${VERIFY_CHECKSUMS}" != "false" ]]; then
-    EXPECTED_CHECKSUM=${sha512sums[${VERSION}]}
-    if [[ -n "${EXPECTED_CHECKSUM}" ]]; then
-        # If the version is in the table, verify the checksum
-        verify_checksum "helm" "${EXPECTED_CHECKSUM}"
-    else
-        # If the version is not in the table, a Helm release exists that this orb
-        # has not yet checksummed. Strict mode fails closed. known_versions allows
-        # that release to run and prints a warning.
-        if [[ "${VERIFY_CHECKSUMS}" == "known_versions" ]]; then
-            echo "WARN: No checksum available for version ${VERSION}, but strict mode is not enabled."
-            echo "WARN: Either upgrade this orb, or submit a PR with the new checksum."
-            echo "WARN: Skipping checksum verification..."
-        else
-            echo "ERROR: No checksum available for version ${VERSION} and strict mode is enabled."
-            echo "ERROR: Either upgrade this orb, submit a PR with the new checksum, or set 'verify_checksums' to 'known_versions'."
-            exit 1
-        fi
-    fi
-else
-    echo "WARN: Checksum validation is disabled. This is not recommended. Skipping..."
+if [[ -n "${EXPECTED_CHECKSUM}" ]]; then
+    verify_checksum "helm" "${EXPECTED_CHECKSUM}"
 fi
 
 # After verifying integrity, install it by moving it to

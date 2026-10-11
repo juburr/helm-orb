@@ -32,6 +32,41 @@ jobs:
       - run:
           name: Verify Install
           command: command -v helm
+  # Runs install.sh under the verify_checksums default declared in install.yml against a real
+  # Helm release that has no checksum in the lookup table (a 404 cannot explain a failure).
+  checksum-test:
+    docker:
+      - image: cimg/base:current-22.04
+    environment:
+      UNLISTED_VERSION: 4.0.0-rc.1
+    steps:
+      - checkout
+      - run:
+          name: Unlisted Version Fails Closed By Default
+          command: |
+            REPO_DIR=$(pwd)
+            DEFAULT_MODE=$(yq '.parameters.verify_checksums.default' src/commands/install.yml)
+            echo "verify_checksums default: ${DEFAULT_MODE}"
+            cd "$(mktemp -d)" && mkdir bin
+            if PARAM_INSTALL_PATH="$(pwd)/bin" PARAM_VERIFY_CHECKSUMS="${DEFAULT_MODE}" PARAM_VERSION="${UNLISTED_VERSION}" \
+                bash "${REPO_DIR}/src/scripts/install.sh"; then
+              echo "FAIL: install succeeded for unlisted version ${UNLISTED_VERSION} under the default."
+              exit 1
+            fi
+            if [[ -e helm.tar.gz || -e bin/helm ]]; then
+              echo "FAIL: install downloaded or installed Helm before rejecting the unlisted version."
+              exit 1
+            fi
+            echo "PASS: unlisted version ${UNLISTED_VERSION} failed closed before download."
+      - run:
+          name: known_versions Opt-Out Installs Unlisted Version
+          command: |
+            REPO_DIR=$(pwd)
+            cd "$(mktemp -d)" && mkdir bin
+            PARAM_INSTALL_PATH="$(pwd)/bin" PARAM_VERIFY_CHECKSUMS=known_versions PARAM_VERSION="${UNLISTED_VERSION}" \
+              bash "${REPO_DIR}/src/scripts/install.sh" | tee install.log
+            grep -q "WARN: No checksum available for version ${UNLISTED_VERSION}" install.log
+            bin/helm version --short | grep -F "v${UNLISTED_VERSION}"
 
 workflows:
   test-deploy:
@@ -39,6 +74,8 @@ workflows:
       # Make sure to include "filters: *filters" in every test job you want to run as part of your deployment.
       # Test your orb's commands in a custom job and test your orb's jobs directly as a part of this workflow.
       - command-test:
+          filters: *filters
+      - checksum-test:
           filters: *filters
       # The orb must be re-packed for publishing, and saved to the workspace.
       - orb-tools/pack:
@@ -51,5 +88,6 @@ workflows:
           requires:
             - orb-tools/pack
             - command-test
+            - checksum-test
           context: orb-publishing
           filters: *release-filters
