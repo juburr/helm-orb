@@ -27,11 +27,19 @@ jobs:
       - image: cimg/base:current-22.04
     steps:
       - checkout
+      # Repositories often keep charts in a top-level helm/ directory, as in this orb's usage example.
+      # Install must not collide with it.
+      - run:
+          name: Create helm/ Chart Directory
+          command: mkdir -p helm/myapplication && touch helm/myapplication/Chart.yaml
       # Run your orb's commands to validate them.
       - helm-orb/install
       - run:
           name: Verify Install
-          command: command -v helm
+          command: |
+            command -v helm
+            helm version
+            [[ -f helm/myapplication/Chart.yaml ]]
 
 workflows:
   test-deploy:
