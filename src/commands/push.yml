@@ -3,6 +3,12 @@ parameters:
   chart:
     type: string
     description: Path to the Helm chart, packaged as a .tgz file.
+  plain_http:
+    type: boolean
+    default: false
+    description: >
+      Push over plain HTTP instead of HTTPS, for registries without TLS such as a local test registry.
+      Helm 3 and Helm 4 both require this for HTTP registries. Requires Helm 3.13.0 or later.
   registry:
     type: string
     description: Registry to upload the Helm chart to.
@@ -10,6 +16,7 @@ steps:
   - run:
       environment:
         PARAM_CHART: << parameters.chart >>
+        PARAM_PLAIN_HTTP: << parameters.plain_http >>
         PARAM_REGISTRY: << parameters.registry >>
       name: Push Helm Chart
       command: <<include(scripts/push.sh)>>
