@@ -13,7 +13,7 @@ parameters:
     default: NEXUS_USER
   upload_path:
     type: string
-    description: Path to the raw repository directory.
+    description: URL of the raw repository directory. Must start with https://.
 steps:
   - run:
       environment:

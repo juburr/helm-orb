@@ -181,6 +181,34 @@ jobs:
             grep -x 'version: 0.1.0' /tmp/pushed-chart.yaml
       - helm-orb/registry_logout:
           registry: ${REGISTRY_HOST}
+  # push_raw sends credentials in request headers, so it must refuse anything but an https:// URL
+  # without contacting the host.
+  push-raw-test:
+    docker:
+      - image: cimg/base:current-22.04
+    environment:
+      NEXUS_USER: ci-user
+      NEXUS_PASSWORD: ci-password
+    steps:
+      - checkout
+      - run:
+          name: push_raw Rejects Non-HTTPS Upload Paths
+          command: |
+            touch chart.tgz
+            for UPLOAD_PATH in "http://nexus.example/charts/" "https-nexus.example/charts/" "nexus.example/charts/"; do
+              if PARAM_CHART=chart.tgz PARAM_PASSWORD_ENV=NEXUS_PASSWORD PARAM_USERNAME_ENV=NEXUS_USER PARAM_UPLOAD_PATH="${UPLOAD_PATH}" \
+                  bash src/scripts/push_raw.sh > push_raw.log 2>&1; then
+                cat push_raw.log
+                echo "FAIL: push_raw accepted ${UPLOAD_PATH}"
+                exit 1
+              fi
+              if grep -q "Response code" push_raw.log; then
+                cat push_raw.log
+                echo "FAIL: push_raw contacted ${UPLOAD_PATH} before rejecting it"
+                exit 1
+              fi
+              echo "PASS: rejected ${UPLOAD_PATH}"
+            done
 
 workflows:
   test-deploy:
@@ -199,6 +227,8 @@ workflows:
             parameters:
               helm_version: ["3.22.0", "default"]
           filters: *filters
+      - push-raw-test:
+          filters: *filters
       # The orb must be re-packed for publishing, and saved to the workspace.
       - orb-tools/pack:
           filters: *release-filters
@@ -213,5 +243,6 @@ workflows:
             - checksum-test
             - arm64-test
             - helm-conformance-test
+            - push-raw-test
           context: orb-publishing
           filters: *release-filters

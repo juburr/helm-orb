@@ -25,11 +25,12 @@ echo "Running Helm raw push command..."
 echo "  CHART: ${CHART}"
 echo "  UPLOAD_PATH: ${UPLOAD_PATH}"
 
-# Require HTTPS to be used
-if [[ "${UPLOAD_PATH}" == https* ]]; then
-    echo "The UPLOAD_PATH starts with 'https'. Proceeding..."
+# Require HTTPS to be used. Match the full scheme: curl sends a URL without one over
+# plain HTTP, so a bare "https" prefix would also accept a host like "https-nexus.example".
+if [[ "${UPLOAD_PATH}" == https://* ]]; then
+    echo "The UPLOAD_PATH starts with 'https://'. Proceeding..."
 else
-    echo "The push_raw command currently requires the use the HTTPS."
+    echo "The push_raw command currently requires an upload path starting with 'https://'."
     echo "Credentials are included within request headers."
     exit 1
 fi
