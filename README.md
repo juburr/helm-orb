@@ -24,3 +24,6 @@ Info for security teams:
   - `push_raw`: the `upload_path` you pass.
 - `package`, `locate_chart`, and `registry_logout` make no network requests.
 - With `caching` enabled (the default), `install` also uses CircleCI's cache storage through the built-in `restore_cache` and `save_cache` steps. On CircleCI cloud with self-hosted runners, that requires outbound HTTPS to `circleci-tasks-prod.s3.us-east-1.amazonaws.com` (see the [runner FAQ](https://circleci.com/docs/guides/execution-runner/runner-faqs/#what-connectivity-is-required)). Set `caching: false` to avoid it.
+
+### **Platform Support**
+- Linux executors on `amd64` (`x86_64`) and `arm64` (`aarch64`), including CircleCI's Arm resource classes. The `install` command selects the matching Helm build and verifies it against a per-architecture SHA-512 checksum. Other platforms fail with an error.
