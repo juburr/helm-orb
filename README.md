@@ -32,7 +32,7 @@ This is an unofficial Helm orb used for installing Helm in your CircleCI pipelin
 ## Features
 ### **Secure By Design**
 - **Least Privilege**: Installs to a user-owned directory by default, with no `sudo` usage anywhere in this orb.
-- **Integrity**: Checksum validation of all downloaded binaries using SHA-512.
+- **Integrity**: Checksum validation of all downloaded binaries using SHA-512. Helm versions without a checksum in this orb fail closed by default (`verify_checksums: strict`); set `verify_checksums: known_versions` to install them unverified with a warning.
 - **Provenance**: Installs directly from Helm's [official webpage](https://helm.sh/). No third-party websites, domains, or proxies are used.
 - **Confidentiality**: All secrets and environment variables are handled in accordance with CircleCI's [security recommendations](https://circleci.com/docs/security-recommendations/) and [best practices](https://circleci.com/docs/orbs-best-practices/).
 - **Privacy**: No usage data of any kind is collected or shipped back to the orb developer.
