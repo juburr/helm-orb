@@ -307,15 +307,20 @@ else
     echo "WARN: Checksum validation is disabled. This is not recommended. Skipping..."
 fi
 
+# Extract into a private directory rather than the working directory, which is usually
+# the checked-out repository and may already contain a "helm" file or directory.
+EXTRACT_DIR=$(mktemp -d)
+trap 'rm -rf "${EXTRACT_DIR}"' EXIT
+
 # Check if the helm tar file was in the CircleCI cache.
 # Cache restoration is handled in install.yml
 if [[ -f helm.tar.gz ]]; then
-    tar -xvzf helm.tar.gz "linux-${ARCH}/helm" --strip-components 1
+    tar -xvzf helm.tar.gz -C "${EXTRACT_DIR}" "linux-${ARCH}/helm" --strip-components 1
 fi
 
 # If there was no cache hit, go ahead and re-download the binary.
 # Tar it up to save on cache space used.
-if [[ ! -f helm ]]; then
+if [[ ! -f "${EXTRACT_DIR}/helm" ]]; then
     if command -v wget &> /dev/null; then
         wget "https://get.helm.sh/helm-v${VERSION}-linux-${ARCH}.tar.gz" -O helm.tar.gz
     elif command -v curl &> /dev/null; then
@@ -324,19 +329,19 @@ if [[ ! -f helm ]]; then
         echo "ERROR: Neither wget nor curl is available. Please install one of them."
         exit 1
     fi
-    tar -xvzf helm.tar.gz "linux-${ARCH}/helm" --strip-components 1
+    tar -xvzf helm.tar.gz -C "${EXTRACT_DIR}" "linux-${ARCH}/helm" --strip-components 1
 fi
 
 # A helm binary should exist at this point, regardless of whether it was obtained
 # through cache or re-downloaded. First verify its integrity.
 if [[ -n "${EXPECTED_CHECKSUM}" ]]; then
-    verify_checksum "helm" "${EXPECTED_CHECKSUM}"
+    verify_checksum "${EXTRACT_DIR}/helm" "${EXPECTED_CHECKSUM}"
 fi
 
 # After verifying integrity, install it by moving it to
 # an appropriate bin directory and marking it as executable.
 mkdir -p "${INSTALL_PATH}"
-mv helm "${INSTALL_PATH}/helm"
+mv "${EXTRACT_DIR}/helm" "${INSTALL_PATH}/helm"
 chmod +x "${INSTALL_PATH}/helm"
 
 # Images such as cimg/base already have the install path on PATH. Others, such as the
