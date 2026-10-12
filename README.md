@@ -40,3 +40,6 @@ This is an unofficial Helm orb used for installing Helm in your CircleCI pipelin
 Info for security teams:
 - Required external access to allow, if running a locked down, self-hosted CircleCI pipeline on-prem:
   - `get.helm.sh`: For download and installation of the Helm tool.
+
+### **Platform Support**
+- Linux executors on `amd64` (`x86_64`) and `arm64` (`aarch64`), including CircleCI's Arm resource classes. The `install` command selects the matching Helm build and verifies it against a per-architecture SHA-512 checksum. Other platforms fail with an error.

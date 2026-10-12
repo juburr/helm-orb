@@ -67,6 +67,29 @@ jobs:
               bash "${REPO_DIR}/src/scripts/install.sh" | tee install.log
             grep -q "WARN: No checksum available for version ${UNLISTED_VERSION}" install.log
             bin/helm version --short | grep -F "v${UNLISTED_VERSION}"
+  # Installs on an Arm machine to confirm the arm64 build is selected and verified. The second
+  # install restores the tarball cached by the first, covering the cache-hit path.
+  arm64-test:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: arm.medium
+    steps:
+      - helm-orb/install
+      - helm-orb/install
+      - run:
+          name: Verify arm64 Install
+          command: |
+            if [[ "$(uname -m)" != "aarch64" ]]; then
+              echo "FAIL: expected an aarch64 machine, got $(uname -m)."
+              exit 1
+            fi
+            HELM_FILE_TYPE=$(file -L "$(command -v helm)")
+            echo "${HELM_FILE_TYPE}"
+            if [[ "${HELM_FILE_TYPE}" != *"ARM aarch64"* ]]; then
+              echo "FAIL: the installed helm binary is not an arm64 build."
+              exit 1
+            fi
+            helm version
   # Runs the orb's Helm commands (install, package, locate_chart, registry_login, push, registry_logout)
   # under one Helm version against a local registry:2 over plain HTTP. The workflow runs it for a
   # pinned Helm 3 release and for the install command's default (Helm 4).
@@ -160,6 +183,8 @@ workflows:
           filters: *filters
       - checksum-test:
           filters: *filters
+      - arm64-test:
+          filters: *filters
       - helm-conformance-test:
           name: helm-conformance-test-<< matrix.helm_version >>
           matrix:
@@ -178,6 +203,7 @@ workflows:
             - orb-tools/pack
             - command-test
             - checksum-test
+            - arm64-test
             - helm-conformance-test
           context: orb-publishing
           filters: *release-filters
