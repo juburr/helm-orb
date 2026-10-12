@@ -4,6 +4,13 @@ parameters:
     type: env_var_name
     description: Environment variable holding the password or token.
     default: GITHUB_TOKEN
+  plain_http:
+    type: boolean
+    default: false
+    description: >
+      Log in over plain HTTP instead of HTTPS, for registries without TLS such as a local test registry.
+      Helm 4 requires this for HTTP registries, while Helm 3 falls back to HTTP without it.
+      Requires Helm 3.18.0 or later.
   username_env:
     type: env_var_name
     description: Environment variable holding the username.
@@ -17,6 +24,7 @@ steps:
   - run:
       environment:
         PARAM_PASSWORD_ENV: << parameters.password_env >>
+        PARAM_PLAIN_HTTP: << parameters.plain_http >>
         PARAM_USERNAME_ENV: << parameters.username_env >>
         PARAM_REGISTRY: << parameters.registry >>
       name: Helm Registry Login
