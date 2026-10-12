@@ -8,6 +8,27 @@
 
 This is an unofficial Helm orb used for installing Helm in your CircleCI pipeline and publishing Helm charts for use in Kubernetes deployments. Contributions are welcome!
 
+> [!IMPORTANT]
+> **Version 0.7.0 changed the default Helm version from 3.18.6 to 4.3.0 (Helm 4).** If you upgraded the orb without setting `version` on `install`, your pipeline now runs Helm 4. Pin the Helm version you need, and pin the orb to an exact release so that future default changes only reach you when you choose to upgrade:
+>
+> ```yaml
+> orbs:
+>   helm: juburr/helm-orb@0.8.0
+> jobs:
+>   publish-chart:
+>     docker:
+>       - image: cimg/base:current-22.04
+>     steps:
+>       - helm/install:
+>           version: "3.22.0" # or "4.3.0"
+> ```
+>
+> Behavior differences between Helm 3 and Helm 4 that affect this orb:
+> - `registry_login`: Helm 4 accepts a hostname only (for example `ghcr.io`, not `https://ghcr.io`), and it no longer falls back to plain HTTP. Set `plain_http: true` for registries without TLS (available from orb 0.8.0).
+> - Both major versions are tested in this orb's CI: `install`, `package`, `locate_chart`, `registry_login`, `push`, and `registry_logout` run against Helm 3.22.0 and the default Helm 4 release.
+>
+> Helm 3 stopped receiving bug fixes on September 9, 2026 and receives security fixes until February 10, 2027 ([announcement](https://helm.sh/blog/helm-v3-end-of-life)).
+
 ## Features
 ### **Secure By Design**
 - **Least Privilege**: Installs to a user-owned directory by default, with no `sudo` usage anywhere in this orb.

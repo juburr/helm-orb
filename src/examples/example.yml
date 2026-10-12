@@ -11,7 +11,8 @@ usage:
         - image: cimg/base:current-22.04
       steps:
         - checkout
-        - helm/install
+        - helm/install:
+            version: "4.3.0"
         - helm/package:
             app_version: 4.1.2
             chart_directory: helm/myapplication
