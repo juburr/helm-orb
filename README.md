@@ -39,7 +39,12 @@ This is an unofficial Helm orb used for installing Helm in your CircleCI pipelin
 
 Info for security teams:
 - Required external access to allow, if running a locked down, self-hosted CircleCI pipeline on-prem:
-  - `get.helm.sh`: For download and installation of the Helm tool.
+  - `get.helm.sh`: For download and installation of the Helm tool. This is the only host the orb's scripts contact on their own. Downloads are served directly from it, with no redirects to other hosts.
+- Hosts you configure, contacted only by the commands that take them:
+  - `registry_login` and `push`: the registry you pass, plus any other host that registry directs Helm to, such as a token service it delegates authentication to (for example, Docker Hub uses `auth.docker.io`) or a separate upload endpoint named in its responses.
+  - `push_raw`: the `upload_path` you pass.
+- `package`, `locate_chart`, and `registry_logout` make no network requests.
+- With `caching` enabled (the default), `install` also uses CircleCI's cache storage through the built-in `restore_cache` and `save_cache` steps. On CircleCI cloud with self-hosted runners, that requires outbound HTTPS to `circleci-tasks-prod.s3.us-east-1.amazonaws.com` (see the [runner FAQ](https://circleci.com/docs/guides/execution-runner/runner-faqs/#what-connectivity-is-required)). Set `caching: false` to avoid it.
 
 ### **Platform Support**
 - Linux executors on `amd64` (`x86_64`) and `arm64` (`aarch64`), including CircleCI's Arm resource classes. The `install` command selects the matching Helm build and verifies it against a per-architecture SHA-512 checksum. Other platforms fail with an error.
