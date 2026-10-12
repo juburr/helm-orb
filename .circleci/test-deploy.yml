@@ -67,6 +67,29 @@ jobs:
               bash "${REPO_DIR}/src/scripts/install.sh" | tee install.log
             grep -q "WARN: No checksum available for version ${UNLISTED_VERSION}" install.log
             bin/helm version --short | grep -F "v${UNLISTED_VERSION}"
+  # Installs on an Arm machine to confirm the arm64 build is selected and verified. The second
+  # install restores the tarball cached by the first, covering the cache-hit path.
+  arm64-test:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: arm.medium
+    steps:
+      - helm-orb/install
+      - helm-orb/install
+      - run:
+          name: Verify arm64 Install
+          command: |
+            if [[ "$(uname -m)" != "aarch64" ]]; then
+              echo "FAIL: expected an aarch64 machine, got $(uname -m)."
+              exit 1
+            fi
+            HELM_FILE_TYPE=$(file -L "$(command -v helm)")
+            echo "${HELM_FILE_TYPE}"
+            if [[ "${HELM_FILE_TYPE}" != *"ARM aarch64"* ]]; then
+              echo "FAIL: the installed helm binary is not an arm64 build."
+              exit 1
+            fi
+            helm version
   # push_raw sends credentials in request headers, so it must refuse anything but an https:// URL
   # without contacting the host.
   push-raw-test:
@@ -105,6 +128,8 @@ workflows:
           filters: *filters
       - checksum-test:
           filters: *filters
+      - arm64-test:
+          filters: *filters
       - push-raw-test:
           filters: *filters
       # The orb must be re-packed for publishing, and saved to the workspace.
@@ -119,6 +144,7 @@ workflows:
             - orb-tools/pack
             - command-test
             - checksum-test
+            - arm64-test
             - push-raw-test
           context: orb-publishing
           filters: *release-filters
