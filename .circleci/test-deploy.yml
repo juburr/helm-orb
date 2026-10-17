@@ -61,7 +61,7 @@ jobs:
               echo "FAIL: install succeeded for unlisted version ${UNLISTED_VERSION} under the default."
               exit 1
             fi
-            if [[ -e helm.tar.gz || -e bin/helm ]]; then
+            if [[ -e bin/helm || -n "$(ls -A | grep -vx bin)" ]]; then
               echo "FAIL: install downloaded or installed Helm before rejecting the unlisted version."
               exit 1
             fi
@@ -72,8 +72,9 @@ jobs:
             REPO_DIR=$(pwd)
             cd "$(mktemp -d)" && mkdir bin
             PARAM_INSTALL_PATH="$(pwd)/bin" PARAM_VERIFY_CHECKSUMS=known_versions PARAM_VERSION="${UNLISTED_VERSION}" \
-              bash "${REPO_DIR}/src/scripts/install.sh" | tee install.log
-            grep -q "WARN: No checksum available for version ${UNLISTED_VERSION}" install.log
+              bash "${REPO_DIR}/src/scripts/install.sh" 2>&1 | tee install.log
+            grep -q "has no checksum for Helm ${UNLISTED_VERSION}" install.log
+            grep -q "UNVERIFIED" install.log
             bin/helm version --short | grep -F "v${UNLISTED_VERSION}"
   # Installs on an Arm machine to confirm the arm64 build is selected and verified. The second
   # install restores the tarball cached by the first, covering the cache-hit path.
