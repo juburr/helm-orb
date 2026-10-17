@@ -4,10 +4,10 @@ set -e
 set +o history
 
 # Prepare orb parameters
-CHART_NAME=$(circleci env subst "${PARAM_CHART_NAME}")
-CHART_VERSION=$(circleci env subst "${PARAM_CHART_VERSION}")
-ENV_OUTPUT_PACKAGE=$(circleci env subst "${PARAM_ENV_OUTPUT_PACKAGE}")
-SEARCH_DIRECTORY=$(circleci env subst "${PARAM_SEARCH_DIRECTORY}")
+CHART_NAME=$(printf '%s' "${PARAM_CHART_NAME}" | circleci env subst)
+CHART_VERSION=$(printf '%s' "${PARAM_CHART_VERSION}" | circleci env subst)
+ENV_OUTPUT_PACKAGE=$(printf '%s' "${PARAM_ENV_OUTPUT_PACKAGE}" | circleci env subst)
+SEARCH_DIRECTORY=$(printf '%s' "${PARAM_SEARCH_DIRECTORY}" | circleci env subst)
 
 # Remove trailing slash from the directory path, if present.
 SEARCH_DIRECTORY="${SEARCH_DIRECTORY%/}"

@@ -4,9 +4,9 @@ set -e
 set +o history
 
 # Prepare orb parameters
-CHART=$(circleci env subst "${PARAM_CHART}")
+CHART=$(printf '%s' "${PARAM_CHART}" | circleci env subst)
 PLAIN_HTTP="${PARAM_PLAIN_HTTP}"
-REGISTRY=$(circleci env subst "${PARAM_REGISTRY}")
+REGISTRY=$(printf '%s' "${PARAM_REGISTRY}" | circleci env subst)
 
 # Print parameters for debugging purposes
 echo "Running Helm push command..."

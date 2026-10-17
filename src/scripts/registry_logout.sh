@@ -4,7 +4,7 @@ set -e
 set +o history
 
 # Prepare orb parameters
-REGISTRY=$(circleci env subst "${PARAM_REGISTRY}")
+REGISTRY=$(printf '%s' "${PARAM_REGISTRY}" | circleci env subst)
 
 # Print parameters for debugging purposes
 echo "Running Helm registry lgout command..."
