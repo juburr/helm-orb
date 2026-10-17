@@ -3,9 +3,9 @@
 set -e
 
 # Read in orb parameters
-INSTALL_PATH=$(circleci env subst "${PARAM_INSTALL_PATH}")
+INSTALL_PATH=$(printf '%s' "${PARAM_INSTALL_PATH}" | circleci env subst)
 VERIFY_CHECKSUMS="${PARAM_VERIFY_CHECKSUMS}"
-VERSION=$(circleci env subst "${PARAM_VERSION}")
+VERSION=$(printf '%s' "${PARAM_VERSION}" | circleci env subst)
 
 # Map the executor's platform to Helm's release naming. Fail rather than install
 # a binary that cannot run on this machine.

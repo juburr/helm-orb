@@ -6,7 +6,7 @@ set +o history
 # Prepare orb parameters
 PASSWORD=${!PARAM_PASSWORD_ENV}
 PLAIN_HTTP="${PARAM_PLAIN_HTTP}"
-REGISTRY=$(circleci env subst "${PARAM_REGISTRY}")
+REGISTRY=$(printf '%s' "${PARAM_REGISTRY}" | circleci env subst)
 USERNAME=${!PARAM_USERNAME_ENV}
 
 # Cleanup makes a best effort to destroy all secrets.

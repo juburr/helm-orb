@@ -4,9 +4,9 @@ set -e
 set +o history
 
 # Prepare orb parameters
-CHART=$(circleci env subst "${PARAM_CHART}")
+CHART=$(printf '%s' "${PARAM_CHART}" | circleci env subst)
 PASSWORD=${!PARAM_PASSWORD_ENV}
-UPLOAD_PATH=$(circleci env subst "${PARAM_UPLOAD_PATH}")
+UPLOAD_PATH=$(printf '%s' "${PARAM_UPLOAD_PATH}" | circleci env subst)
 USERNAME=${!PARAM_USERNAME_ENV}
 
 # Cleanup makes a best effort to destroy all secrets.
