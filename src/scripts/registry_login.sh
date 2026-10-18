@@ -1,13 +1,14 @@
 #!/bin/bash
 
-set -e
-set +o history
+set -euo pipefail
+# A job can turn xtrace on for every step (SHELLOPTS, or set -x in $BASH_ENV), and it would print the password.
+set +o xtrace
 
 # Prepare orb parameters
-PASSWORD=${!PARAM_PASSWORD}
+PASSWORD=${!PARAM_PASSWORD:-}
 PLAIN_HTTP="${PARAM_PLAIN_HTTP}"
 REGISTRY=$(printf '%s' "${PARAM_REGISTRY}" | circleci env subst)
-USERNAME=${!PARAM_USERNAME}
+USERNAME=${!PARAM_USERNAME:-}
 
 # Cleanup makes a best effort to destroy all secrets.
 cleanup_secrets() {
@@ -31,5 +32,9 @@ if [[ "${PLAIN_HTTP}" == "1" || "${PLAIN_HTTP}" == "true" ]]; then
     LOGIN_FLAGS+=(--plain-http)
 fi
 
-# Login to the registry
-echo "${PASSWORD}" | helm registry login --debug "${LOGIN_FLAGS[@]}" "${REGISTRY}" -u "${USERNAME}" --password-stdin
+# Login to the registry. printf, not echo: echo would take a password of -n or
+# -e as its own option. LOGIN_FLAGS is empty without plain_http, and bash
+# before 4.4 treats an empty array as unset under set -u, so it is expanded
+# only when it has elements.
+printf '%s\n' "${PASSWORD}" |
+    helm registry login --debug ${LOGIN_FLAGS[@]+"${LOGIN_FLAGS[@]}"} "${REGISTRY}" -u "${USERNAME}" --password-stdin

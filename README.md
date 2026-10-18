@@ -53,6 +53,7 @@ If you relied on the old default credential variables, either rename those varia
 Behavior changes:
 - `upload` fails the step when the server responds with anything other than a 2xx status, and prints the response code and body. `push_raw` reported success on HTTP errors such as 401 or 500. The credentials now reach curl on stdin instead of its command line, and `upload` fails if either credential variable is unset or empty.
 - `package` and `locate_chart` shell-quote the path they export through `BASH_ENV`, so paths containing spaces or other special characters reach later steps intact.
+- Failure messages, such as `upload`'s "The upload failed: ...", now start with `ERROR:` and go to stderr. A step that searches a command's output for one must read stderr too.
 
 ## Features
 ### **Secure By Design**

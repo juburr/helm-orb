@@ -1,7 +1,8 @@
 #!/bin/bash
 
-set -e
-set +o history
+set -euo pipefail
+# A job can turn xtrace on for every step (SHELLOPTS, or set -x in $BASH_ENV), and it would print the credentials.
+set +o xtrace
 
 # Prepare orb parameters. PARAM_USERNAME and PARAM_PASSWORD hold the names of
 # the environment variables that hold the credentials, not the credentials.
@@ -14,14 +15,14 @@ PASSWORD_VAR="${PARAM_PASSWORD}"
 # value isn't printed, in case a secret was passed instead of a name.
 require_var_name() {
     if [[ ! "$2" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-        echo "The $1 parameter must be the name of an environment variable."
+        echo "ERROR: The $1 parameter must be the name of an environment variable." >&2
         exit 1
     fi
 }
 require_var_name username "${USERNAME_VAR}"
 require_var_name password "${PASSWORD_VAR}"
-USERNAME="${!USERNAME_VAR}"
-PASSWORD="${!PASSWORD_VAR}"
+USERNAME="${!USERNAME_VAR:-}"
+PASSWORD="${!PASSWORD_VAR:-}"
 
 RESPONSE_FILE=$(mktemp)
 
@@ -49,22 +50,22 @@ echo "  PASSWORD: \$${PASSWORD_VAR}"
 if [[ "${URL}" == https://* ]]; then
     echo "The URL starts with 'https://'. Proceeding..."
 else
-    echo "The upload command requires a url starting with 'https://'."
-    echo "Credentials are included within request headers."
+    echo "ERROR: The upload command requires a url starting with 'https://'." >&2
+    echo "Credentials are included within request headers." >&2
     exit 1
 fi
 
 if [[ ! -f "${CHART}" ]]; then
-    echo "The chart '${CHART}' is not a file."
+    echo "ERROR: The chart '${CHART}' is not a file." >&2
     exit 1
 fi
 
 if [[ -z "${USERNAME}" ]]; then
-    echo "\$${USERNAME_VAR}, named by the username parameter, is unset or empty."
+    echo "ERROR: \$${USERNAME_VAR}, named by the username parameter, is unset or empty." >&2
     exit 1
 fi
 if [[ -z "${PASSWORD}" ]]; then
-    echo "\$${PASSWORD_VAR}, named by the password parameter, is unset or empty."
+    echo "ERROR: \$${PASSWORD_VAR}, named by the password parameter, is unset or empty." >&2
     exit 1
 fi
 
@@ -85,25 +86,26 @@ curl_config_quote() {
 # printf is a shell builtin, so they never appear on a command line.
 # --disable, which curl only honors as its first argument, skips the runner's
 # .curlrc: an option there such as location would follow redirects and could
-# send the credentials to another URL.
+# send the credentials to another URL. --proto '=https' refuses every other
+# scheme, so the credentials are only ever sent over TLS.
 # Avoid verbose argument due to potential to leak headers; manually write out HTTP response code to debug instead.
 CURL_RC=0
 CURL_OUTPUT=$(printf 'user = %s\n' "$(curl_config_quote "${USERNAME}:${PASSWORD}")" \
-    | curl --disable --config - --silent --show-error --upload-file "${CHART}" --output "${RESPONSE_FILE}" \
+    | curl --disable --proto '=https' --config - --silent --show-error --upload-file "${CHART}" --output "${RESPONSE_FILE}" \
         --write-out '%{http_code} %{url_effective}' "${URL}") || CURL_RC=$?
 if [[ "${CURL_RC}" -ne 0 ]]; then
-    echo "The upload failed: curl exited with code ${CURL_RC}."
+    echo "ERROR: The upload failed: curl exited with code ${CURL_RC}." >&2
     exit 1
 fi
 
 HTTP_CODE="${CURL_OUTPUT%% *}"
 echo "Response code: ${HTTP_CODE}"
 if [[ ! "${HTTP_CODE}" =~ ^2[0-9][0-9]$ ]]; then
-    echo "The upload failed: the server responded with HTTP ${HTTP_CODE}."
+    echo "ERROR: The upload failed: the server responded with HTTP ${HTTP_CODE}." >&2
     if [[ -s "${RESPONSE_FILE}" ]]; then
-        echo "Response body (up to 4096 bytes):"
-        head -c 4096 "${RESPONSE_FILE}"
-        echo
+        echo "Response body (up to 4096 bytes):" >&2
+        head -c 4096 "${RESPONSE_FILE}" >&2
+        echo >&2
     fi
     exit 1
 fi

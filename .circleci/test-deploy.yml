@@ -194,6 +194,16 @@ jobs:
       - run:
           name: Run upload tests
           command: bash tests/upload_test.sh
+  # Runs registry_login.sh, with PARAM_* set directly, against a stand-in helm: the password must reach
+  # helm on stdin and stay out of its arguments and the step log, even with xtrace on for the job.
+  registry-login-test:
+    docker:
+      - image: cimg/base:current-22.04
+    steps:
+      - checkout
+      - run:
+          name: Run registry login tests
+          command: bash tests/registry_login_test.sh
 
 workflows:
   test-deploy:
@@ -214,6 +224,8 @@ workflows:
           filters: *filters
       - upload-test:
           filters: *filters
+      - registry-login-test:
+          filters: *filters
       # The orb must be re-packed for publishing, and saved to the workspace.
       - orb-tools/pack:
           filters: *release-filters
@@ -229,5 +241,6 @@ workflows:
             - arm64-test
             - helm-conformance-test
             - upload-test
+            - registry-login-test
           context: orb-publishing
           filters: *release-filters

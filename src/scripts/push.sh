@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -e
-set +o history
+set -euo pipefail
 
 # Prepare orb parameters
 CHART=$(printf '%s' "${PARAM_CHART}" | circleci env subst)
@@ -20,5 +19,7 @@ if [[ "${PLAIN_HTTP}" == "1" || "${PLAIN_HTTP}" == "true" ]]; then
     PUSH_FLAGS+=(--plain-http)
 fi
 
-# Upload the Helm chart to a registry
-helm push --debug "${PUSH_FLAGS[@]}" "${CHART}" "${REMOTE}"
+# Upload the Helm chart to a registry. PUSH_FLAGS is empty without plain_http,
+# and bash before 4.4 treats an empty array as unset under set -u, so it is
+# expanded only when it has elements.
+helm push --debug ${PUSH_FLAGS[@]+"${PUSH_FLAGS[@]}"} "${CHART}" "${REMOTE}"
