@@ -10,6 +10,7 @@
 #   - HTTP error responses, redirects and connection failures fail the step,
 #     and print the response code and body
 #   - unset credentials and invalid variable names are refused
+#   - errors go to stderr and start with ERROR:, and curl only speaks https
 #
 # Needs python3, openssl and curl. The circleci CLI is stubbed when it isn't on
 # the PATH.
@@ -132,12 +133,15 @@ expected_auth() {
 FAILURES=0
 RC=0
 OUTPUT=""
+STDOUT=""
+STDERR=""
 
 # run_upload [VAR=value ...]: runs upload.sh with default parameters,
-# overridden by the given assignments, and sets RC and OUTPUT.
+# overridden by the given assignments, and sets RC, STDOUT, STDERR, and
+# OUTPUT (stdout followed by stderr).
 run_upload() {
     rm -f "${WORK}/requests" "${WORK}/received" "${WORK}/curl-args"
-    OUTPUT=$(env -u BASH_ENV -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy -u ALL_PROXY -u all_proxy \
+    env -u BASH_ENV -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy -u ALL_PROXY -u all_proxy \
         PATH="${WORK}/bin:${PATH}" \
         TMPDIR="${WORK}/tmp" \
         CURL_HOME="${WORK}" \
@@ -149,8 +153,11 @@ run_upload() {
         PARAM_USERNAME="HELM_REPO_USERNAME" \
         PARAM_PASSWORD="HELM_REPO_PASSWORD" \
         "$@" \
-        bash "${SCRIPT}" 2>&1)
+        bash "${SCRIPT}" > "${WORK}/stdout" 2> "${WORK}/stderr"
     RC=$?
+    STDOUT=$(cat "${WORK}/stdout")
+    STDERR=$(cat "${WORK}/stderr")
+    OUTPUT="${STDOUT}"$'\n'"${STDERR}"
 }
 
 # check DESCRIPTION COMMAND...: records a failure, with the output, unless
@@ -170,17 +177,26 @@ rc_is_zero() { [[ "${RC}" -eq 0 ]]; }
 rc_is_nonzero() { [[ "${RC}" -ne 0 ]]; }
 output_has() { grep -qF -- "$1" <<< "${OUTPUT}"; }
 output_lacks() { ! grep -qF -- "$1" <<< "${OUTPUT}"; }
+# stderr_has LINE: LINE is a whole line of stderr, and not on stdout.
+stderr_has() { grep -qxF -- "$1" <<< "${STDERR}" && ! grep -qF -- "$1" <<< "${STDOUT}"; }
+stdout_has() { grep -qF -- "$1" <<< "${STDOUT}"; }
+no_error_on_stdout() { ! grep -qF -- "ERROR:" <<< "${STDOUT}"; }
 request_was() { [[ "$(cat "${WORK}/requests" 2> /dev/null)" == "PUT $1 $2" ]]; }
 no_request() { [[ ! -e "${WORK}/requests" ]]; }
 curl_not_run() { [[ ! -e "${WORK}/curl-args" ]]; }
 args_lack() { ! grep -qF -- "$1" "${WORK}/curl-args"; }
 first_arg_is() { [[ "$(head -n 1 "${WORK}/curl-args")" == "$1" ]]; }
+# args_start_with ARG...: curl's first arguments are exactly ARG...
+args_start_with() { [[ "$(head -n "$#" "${WORK}/curl-args")" == "$(printf '%s\n' "$@")" ]]; }
 tmp_is_empty() { [[ -z "$(ls -A "${WORK}/tmp")" ]]; }
 
 for url in "http://nexus.example/charts/" "https-nexus.example/charts/" "nexus.example/charts/"; do
     run_upload PARAM_URL="${url}"
     check "rejects ${url}" rc_is_nonzero
     check "explains why ${url} is rejected" output_has "requires a url starting with 'https://'"
+    check "prints the ${url} error on stderr" stderr_has "ERROR: The upload command requires a url starting with 'https://'."
+    check "prints the ${url} error's second line on stderr" stderr_has "Credentials are included within request headers."
+    check "prints no error on stdout for ${url}" no_error_on_stdout
     check "does not contact ${url}" curl_not_run
     check "prints no response code for ${url}" output_lacks "Response code"
 done
@@ -198,6 +214,18 @@ check "keeps the encoded credentials off curl's command line" \
     args_lack "$(expected_auth "${TEST_USERNAME}" "${TEST_PASSWORD}" | cut -d' ' -f2)"
 check "never prints the password" output_lacks "${TEST_PASSWORD}"
 check "removes its temporary files" tmp_is_empty
+check "passes --disable first, then --proto =https" args_start_with "--disable" "--proto" "=https"
+check "prints nothing on stderr after a successful upload" [ -z "${STDERR}" ]
+check "prints the response code on stdout" stdout_has "Response code: 201"
+
+# A job can turn xtrace on for every step through SHELLOPTS or a set -x in
+# BASH_ENV. upload turns it off before it reads the credentials.
+run_upload SHELLOPTS=xtrace
+check "uploads with xtrace turned on for the job" rc_is_zero
+# xtrace quotes the tab as $'...\t...', so look for a part it prints as is.
+check "turns xtrace off before reading the credentials" output_lacks 'p@ss "quoted"'
+check "does not trace the encoded credentials" \
+    output_lacks "$(expected_auth "${TEST_USERNAME}" "${TEST_PASSWORD}" | cut -d' ' -f2)"
 
 run_upload PARAM_URL="${SERVER}/charts/renamed-1.0.0.tgz"
 check "uploads to a file URL" rc_is_zero
@@ -214,6 +242,9 @@ check "fails on HTTP 401" rc_is_nonzero
 check "prints the 401 response code" output_has "Response code: 401"
 check "explains the 401 failure" output_has "the server responded with HTTP 401"
 check "prints the 401 response body" output_has "Invalid credentials for this repository"
+check "prints the 401 failure on stderr" stderr_has "ERROR: The upload failed: the server responded with HTTP 401."
+check "prints the 401 response body on stderr" stderr_has "Invalid credentials for this repository"
+check "prints no error on stdout for the 401" no_error_on_stdout
 check "removes its temporary files after a failure" tmp_is_empty
 
 run_upload PARAM_URL="${SERVER}/broken/"
@@ -237,24 +268,29 @@ check "stops at the redirect despite the .curlrc" output_has "Response code: 302
 run_upload PARAM_URL="https://127.0.0.1:9/charts/"
 check "fails when the server is unreachable" rc_is_nonzero
 check "explains the connection failure" output_has "curl exited with code 7"
+check "prints the connection failure on stderr" stderr_has "ERROR: The upload failed: curl exited with code 7."
 
 run_upload HELM_REPO_PASSWORD=""
 check "refuses an empty password variable" rc_is_nonzero
 check "names the empty password variable" output_has "\$HELM_REPO_PASSWORD, named by the password parameter, is unset or empty."
+check "names the empty password variable on stderr" stderr_has "ERROR: \$HELM_REPO_PASSWORD, named by the password parameter, is unset or empty."
 check "does not upload without a password" curl_not_run
 
 run_upload PARAM_USERNAME="UNSET_TEST_USERNAME"
 check "refuses an unset username variable" rc_is_nonzero
 check "names the unset username variable" output_has "\$UNSET_TEST_USERNAME, named by the username parameter, is unset or empty."
+check "names the unset username variable on stderr" stderr_has "ERROR: \$UNSET_TEST_USERNAME, named by the username parameter, is unset or empty."
 
 run_upload PARAM_PASSWORD="hunter2 secret"
 check "refuses a password parameter that isn't a variable name" rc_is_nonzero
 check "explains the invalid password parameter" output_has "The password parameter must be the name of an environment variable."
+check "explains the invalid password parameter on stderr" stderr_has "ERROR: The password parameter must be the name of an environment variable."
 check "does not print the invalid password parameter" output_lacks "hunter2"
 
 run_upload PARAM_CHART="${CHART_DIR}/missing-1.0.0.tgz"
 check "refuses a missing chart" rc_is_nonzero
 check "explains the missing chart" output_has "is not a file"
+check "explains the missing chart on stderr" stderr_has "ERROR: The chart '${CHART_DIR}/missing-1.0.0.tgz' is not a file."
 check "does not upload a missing chart" no_request
 
 if [[ "${FAILURES}" -gt 0 ]]; then

@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -e
-set +o history
+set -euo pipefail
 
 # Prepare orb parameters
 REGISTRY=$(printf '%s' "${PARAM_REGISTRY}" | circleci env subst)

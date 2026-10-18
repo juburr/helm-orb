@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -e
-set +o history
+set -euo pipefail
 
 # Prepare orb parameters. PACKAGE_ENV_VAR is a variable name, so it is not
 # substituted.
@@ -22,20 +21,25 @@ echo "  SEARCH_DIR: ${SEARCH_DIR}"
 
 # The name is written into BASH_ENV, so it must be a plain variable name.
 if [[ -n "${PACKAGE_ENV_VAR}" && ! "${PACKAGE_ENV_VAR}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-    echo "The package_env_var parameter must be the name of an environment variable, got '${PACKAGE_ENV_VAR}'."
+    echo "ERROR: The package_env_var parameter must be the name of an environment variable, got '${PACKAGE_ENV_VAR}'." >&2
     exit 1
 fi
 
-# Search for a matching Helm chart
+# Search for a matching Helm chart. A find error, or find stopped early by
+# head, leaves OUTPUT_PATH empty, which is reported below.
 OUTPUT_PATH=$(find "$(realpath "${SEARCH_DIR}")" -maxdepth 1 -type f \
-    -name "*.tgz" -iname "*${CHART_NAME}*" -iname "*${CHART_VERSION}*" | head -n 1)
+    -name "*.tgz" -iname "*${CHART_NAME}*" -iname "*${CHART_VERSION}*" | head -n 1) || true
 
 if [[ -z "${OUTPUT_PATH}" ]]; then
-    echo "Unable to locate a Helm chart with the supplied parameters."
+    echo "ERROR: Unable to locate a Helm chart with the supplied parameters." >&2
     exit 1
 fi
 
 if [[ -n "${PACKAGE_ENV_VAR}" ]]; then
+    if [[ -z "${BASH_ENV:-}" ]]; then
+        echo "ERROR: BASH_ENV is unset, so ${PACKAGE_ENV_VAR} cannot be passed to later steps." >&2
+        exit 1
+    fi
     export "${PACKAGE_ENV_VAR}=${OUTPUT_PATH}"
     printf 'export %s=%q\n' "${PACKAGE_ENV_VAR}" "${OUTPUT_PATH}" | tee -a "${BASH_ENV}"
 fi

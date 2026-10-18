@@ -25,6 +25,9 @@ jobs:
       - run:
           name: Run circleci env subst tests
           command: bash tests/env_subst_test.sh
+      - run:
+          name: Run shell conventions test
+          command: bash tests/shell_conventions_test.sh
 
 workflows:
   lint-pack:
