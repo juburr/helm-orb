@@ -29,6 +29,31 @@ This is an unofficial Helm orb used for installing Helm in your CircleCI pipelin
 >
 > Helm 3 stopped receiving bug fixes on September 9, 2026 and receives security fixes until February 10, 2027 ([announcement](https://helm.sh/blog/helm-v3-end-of-life)).
 
+## Upgrading
+
+The next release renames a command and several parameters, to use Helm's own terms and the names the other juburr orbs use. Update your config as follows:
+
+| Old | New |
+| --- | --- |
+| `push_raw` command | `upload` command |
+| `push_raw.upload_path` | `upload.url` |
+| `push_raw.username_env` (default `NEXUS_USER`) | `upload.username` (default `HELM_REPO_USERNAME`) |
+| `push_raw.password_env` (default `NEXUS_PASSWORD`) | `upload.password` (default `HELM_REPO_PASSWORD`) |
+| `package.chart_directory` | `package.chart_dir` |
+| `package.output_directory` | `package.output_dir` |
+| `package.env_output_package` | `package.package_env_var` |
+| `locate_chart.env_output_package` | `locate_chart.package_env_var` |
+| `locate_chart.search_directory` | `locate_chart.search_dir` |
+| `push.registry` | `push.remote` |
+| `registry_login.username_env` (default `GITHUB_USER`) | `registry_login.username` (default `REGISTRY_USERNAME`) |
+| `registry_login.password_env` (default `GITHUB_TOKEN`) | `registry_login.password` (default `REGISTRY_PASSWORD`) |
+
+If you relied on the old default credential variables, either rename those variables in your contexts or project settings, or pass their old names, for example `username: NEXUS_USER`.
+
+Behavior changes:
+- `upload` fails the step when the server responds with anything other than a 2xx status, and prints the response code and body. `push_raw` reported success on HTTP errors such as 401 or 500. The credentials now reach curl on stdin instead of its command line, and `upload` fails if either credential variable is unset or empty.
+- `package` and `locate_chart` shell-quote the path they export through `BASH_ENV`, so paths containing spaces or other special characters reach later steps intact.
+
 ## Features
 ### **Secure By Design**
 - **Least Privilege**: Installs to a user-owned directory by default, with no `sudo` usage anywhere in this orb.
@@ -41,8 +66,8 @@ Info for security teams:
 - Required external access to allow, if running a locked down, self-hosted CircleCI pipeline on-prem:
   - `get.helm.sh`: For download and installation of the Helm tool. This is the only host the orb's scripts contact on their own. Downloads are served directly from it, with no redirects to other hosts.
 - Hosts you configure, contacted only by the commands that take them:
-  - `registry_login` and `push`: the registry you pass, plus any other host that registry directs Helm to, such as a token service it delegates authentication to (for example, Docker Hub uses `auth.docker.io`) or a separate upload endpoint named in its responses.
-  - `push_raw`: the `upload_path` you pass.
+  - `registry_login` and `push`: the registry you pass (`registry_login`'s `registry`, or the host in `push`'s `remote`), plus any other host that registry directs Helm to, such as a token service it delegates authentication to (for example, Docker Hub uses `auth.docker.io`) or a separate upload endpoint named in its responses.
+  - `upload`: the `url` you pass.
 - `package`, `locate_chart`, and `registry_logout` make no network requests.
 - With `caching` enabled (the default), `install` also uses CircleCI's cache storage through the built-in `restore_cache` and `save_cache` steps. On CircleCI cloud with self-hosted runners, that requires outbound HTTPS to `circleci-tasks-prod.s3.us-east-1.amazonaws.com` (see the [runner FAQ](https://circleci.com/docs/guides/execution-runner/runner-faqs/#what-connectivity-is-required)). Set `caching: false` to avoid it.
 

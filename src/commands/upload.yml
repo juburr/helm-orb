@@ -1,0 +1,30 @@
+description: >
+  Uploads a packaged Helm chart (.tgz file) with an HTTP PUT, such as to a Nexus raw repository. The step fails if
+  the server responds with anything other than a 2xx status, and prints the response code and body.
+parameters:
+  chart:
+    type: string
+    description: Path to the Helm chart, packaged as a .tgz file. Environment variables are expanded.
+  password:
+    type: env_var_name
+    description: Name of the environment variable holding the password or token.
+    default: HELM_REPO_PASSWORD
+  url:
+    type: string
+    description: >
+      https:// URL to upload the chart to: either a directory URL ending in "/", to which the chart's file name is
+      appended, or the full URL of the file to create. Must start with https://, since the credentials are sent in
+      a request header. Environment variables are expanded.
+  username:
+    type: env_var_name
+    description: Name of the environment variable holding the username.
+    default: HELM_REPO_USERNAME
+steps:
+  - run:
+      environment:
+        PARAM_CHART: << parameters.chart >>
+        PARAM_PASSWORD: << parameters.password >>
+        PARAM_URL: << parameters.url >>
+        PARAM_USERNAME: << parameters.username >>
+      name: Upload Helm Chart
+      command: <<include(scripts/upload.sh)>>

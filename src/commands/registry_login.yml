@@ -1,9 +1,9 @@
 description: Login to a Helm or OCI compatible registry.
 parameters:
-  password_env:
+  password:
     type: env_var_name
-    description: Environment variable holding the password or token.
-    default: GITHUB_TOKEN
+    description: Name of the environment variable holding the password or token.
+    default: REGISTRY_PASSWORD
   plain_http:
     type: boolean
     default: false
@@ -11,21 +11,22 @@ parameters:
       Log in over plain HTTP instead of HTTPS, for registries without TLS such as a local test registry.
       Helm 4 requires this for HTTP registries, while Helm 3 falls back to HTTP without it.
       Requires Helm 3.18.0 or later.
-  username_env:
+  username:
     type: env_var_name
-    description: Environment variable holding the username.
-    default: GITHUB_USER
+    description: Name of the environment variable holding the username.
+    default: REGISTRY_USERNAME
   registry:
     type: string
     description: >
       Registry hostname to log in to, with an optional port (for example ghcr.io or localhost:5000).
-      Helm 4 accepts a hostname only and rejects a URL scheme or repository path.
+      Helm 4 accepts a hostname only and rejects a URL scheme or repository path, so pass the bare host
+      here, not the oci:// URL that push takes as remote.
 steps:
   - run:
       environment:
-        PARAM_PASSWORD_ENV: << parameters.password_env >>
+        PARAM_PASSWORD: << parameters.password >>
         PARAM_PLAIN_HTTP: << parameters.plain_http >>
-        PARAM_USERNAME_ENV: << parameters.username_env >>
+        PARAM_USERNAME: << parameters.username >>
         PARAM_REGISTRY: << parameters.registry >>
       name: Helm Registry Login
       command: <<include(scripts/registry_login.sh)>>

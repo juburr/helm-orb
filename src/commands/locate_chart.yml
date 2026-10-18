@@ -8,20 +8,24 @@ parameters:
     type: string
     default: ""
     description: The version number to filter the file results by (optional).
-  env_output_package:
+  package_env_var:
     type: env_var_name
     default: "HELM_PACKAGE"
-    description: Environment variable to populate the final package filename with.
-  search_directory:
+    description: >
+      Name of the environment variable this command sets, for later steps, to the absolute path of the packaged
+      chart (.tgz file) it finds.
+  search_dir:
     type: string
     default: "."
-    description: Directory to search for the packaged helm chart (.tgz file) in
+    description: >
+      Directory to search for the packaged chart (.tgz file). Subdirectories are not searched. Environment variables
+      are expanded.
 steps:
   - run:
       environment:
         PARAM_CHART_NAME: << parameters.chart_name >>
         PARAM_CHART_VERSION: << parameters.chart_version >>
-        PARAM_ENV_OUTPUT_PACKAGE: << parameters.env_output_package >>
-        PARAM_SEARCH_DIRECTORY: << parameters.search_directory >>
+        PARAM_PACKAGE_ENV_VAR: << parameters.package_env_var >>
+        PARAM_SEARCH_DIR: << parameters.search_dir >>
       name: Locate Helm Chart
       command: <<include(scripts/locate_chart.sh)>>

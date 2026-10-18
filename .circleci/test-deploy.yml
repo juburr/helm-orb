@@ -101,7 +101,8 @@ jobs:
             helm version
   # Runs the orb's Helm commands (install, package, locate_chart, registry_login, push, registry_logout)
   # under one Helm version against a local registry:2 over plain HTTP. The workflow runs it for a
-  # pinned Helm 3 release and for the install command's default (Helm 4).
+  # pinned Helm 3 release and for the install command's default (Helm 4). DIST_DIR contains a space,
+  # so the paths package and locate_chart export to later steps must be quoted.
   helm-conformance-test:
     parameters:
       helm_version:
@@ -112,7 +113,7 @@ jobs:
       - image: registry:2
     environment:
       CHART_DIR: /tmp/conformance/testchart
-      DIST_DIR: /tmp/conformance/dist
+      DIST_DIR: /tmp/conformance/chart packages
       REGISTRY_HOST: localhost:5000
       REGISTRY_USER: ci-user
       REGISTRY_PASSWORD: ci-password
@@ -147,14 +148,14 @@ jobs:
             helm lint --strict "${CHART_DIR}"
       - helm-orb/package:
           app_version: 1.2.3
-          chart_directory: ${CHART_DIR}
+          chart_dir: ${CHART_DIR}
           chart_version: 0.1.0
-          output_directory: ${DIST_DIR}
+          output_dir: ${DIST_DIR}
       - helm-orb/locate_chart:
           chart_name: testchart
           chart_version: 0.1.0
-          env_output_package: LOCATED_CHART
-          search_directory: ${DIST_DIR}
+          package_env_var: LOCATED_CHART
+          search_dir: ${DIST_DIR}
       - run:
           name: Verify Packaged Chart
           command: |
@@ -168,12 +169,12 @@ jobs:
           command: curl --silent --show-error --fail --retry 30 --retry-delay 1 --retry-connrefused "http://${REGISTRY_HOST}/v2/"
       - helm-orb/registry_login:
           registry: ${REGISTRY_HOST}
-          username_env: REGISTRY_USER
-          password_env: REGISTRY_PASSWORD
+          username: REGISTRY_USER
+          password: REGISTRY_PASSWORD
           plain_http: true
       - helm-orb/push:
           chart: ${LOCATED_CHART}
-          registry: oci://${REGISTRY_HOST}/helm-orb-ci
+          remote: oci://${REGISTRY_HOST}/helm-orb-ci
           plain_http: true
       - run:
           name: Verify Pushed Chart
@@ -182,34 +183,17 @@ jobs:
             grep -x 'version: 0.1.0' /tmp/pushed-chart.yaml
       - helm-orb/registry_logout:
           registry: ${REGISTRY_HOST}
-  # push_raw sends credentials in request headers, so it must refuse anything but an https:// URL
-  # without contacting the host.
-  push-raw-test:
+  # Runs upload.sh, with PARAM_* set directly, against a local HTTPS server: upload sends credentials
+  # in request headers, so it must refuse anything but an https:// URL without contacting the host,
+  # keep them off curl's command line, and fail on HTTP error responses.
+  upload-test:
     docker:
       - image: cimg/base:current-22.04
-    environment:
-      NEXUS_USER: ci-user
-      NEXUS_PASSWORD: ci-password
     steps:
       - checkout
       - run:
-          name: push_raw Rejects Non-HTTPS Upload Paths
-          command: |
-            touch chart.tgz
-            for UPLOAD_PATH in "http://nexus.example/charts/" "https-nexus.example/charts/" "nexus.example/charts/"; do
-              if PARAM_CHART=chart.tgz PARAM_PASSWORD_ENV=NEXUS_PASSWORD PARAM_USERNAME_ENV=NEXUS_USER PARAM_UPLOAD_PATH="${UPLOAD_PATH}" \
-                  bash src/scripts/push_raw.sh > push_raw.log 2>&1; then
-                cat push_raw.log
-                echo "FAIL: push_raw accepted ${UPLOAD_PATH}"
-                exit 1
-              fi
-              if grep -q "Response code" push_raw.log; then
-                cat push_raw.log
-                echo "FAIL: push_raw contacted ${UPLOAD_PATH} before rejecting it"
-                exit 1
-              fi
-              echo "PASS: rejected ${UPLOAD_PATH}"
-            done
+          name: Run upload tests
+          command: bash tests/upload_test.sh
 
 workflows:
   test-deploy:
@@ -228,7 +212,7 @@ workflows:
             parameters:
               helm_version: ["3.22.0", "default"]
           filters: *filters
-      - push-raw-test:
+      - upload-test:
           filters: *filters
       # The orb must be re-packed for publishing, and saved to the workspace.
       - orb-tools/pack:
@@ -244,6 +228,6 @@ workflows:
             - checksum-test
             - arm64-test
             - helm-conformance-test
-            - push-raw-test
+            - upload-test
           context: orb-publishing
           filters: *release-filters

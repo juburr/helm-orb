@@ -4,18 +4,18 @@ set -e
 set +o history
 
 # Prepare orb parameters
-PASSWORD=${!PARAM_PASSWORD_ENV}
+PASSWORD=${!PARAM_PASSWORD}
 PLAIN_HTTP="${PARAM_PLAIN_HTTP}"
 REGISTRY=$(printf '%s' "${PARAM_REGISTRY}" | circleci env subst)
-USERNAME=${!PARAM_USERNAME_ENV}
+USERNAME=${!PARAM_USERNAME}
 
 # Cleanup makes a best effort to destroy all secrets.
 cleanup_secrets() {
     echo "Cleaning up secrets..."
     unset PASSWORD
-    unset PARAM_PASSWORD_ENV
+    unset PARAM_PASSWORD
     unset USERNAME
-    unset PARAM_USERNAME_ENV
+    unset PARAM_USERNAME
     echo "Secrets destroyed."
 }
 trap cleanup_secrets EXIT
