@@ -6,13 +6,13 @@ set +o history
 # Prepare orb parameters
 CHART=$(printf '%s' "${PARAM_CHART}" | circleci env subst)
 PLAIN_HTTP="${PARAM_PLAIN_HTTP}"
-REGISTRY=$(printf '%s' "${PARAM_REGISTRY}" | circleci env subst)
+REMOTE=$(printf '%s' "${PARAM_REMOTE}" | circleci env subst)
 
 # Print parameters for debugging purposes
 echo "Running Helm push command..."
 echo "  CHART: ${CHART}"
 echo "  PLAIN_HTTP: ${PLAIN_HTTP}"
-echo "  REGISTRY: ${REGISTRY}"
+echo "  REMOTE: ${REMOTE}"
 
 # Optional flags
 PUSH_FLAGS=()
@@ -21,4 +21,4 @@ if [[ "${PLAIN_HTTP}" == "1" || "${PLAIN_HTTP}" == "true" ]]; then
 fi
 
 # Upload the Helm chart to a registry
-helm push --debug "${PUSH_FLAGS[@]}" "${CHART}" "${REGISTRY}"
+helm push --debug "${PUSH_FLAGS[@]}" "${CHART}" "${REMOTE}"

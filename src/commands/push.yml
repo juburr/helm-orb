@@ -9,14 +9,17 @@ parameters:
     description: >
       Push over plain HTTP instead of HTTPS, for registries without TLS such as a local test registry.
       Helm 3 and Helm 4 both require this for HTTP registries. Requires Helm 3.13.0 or later.
-  registry:
+  remote:
     type: string
-    description: Registry to upload the Helm chart to.
+    description: >
+      OCI registry URL to push the chart to, oci://host[:port]/path, which is Helm's [remote] argument (for example
+      oci://ghcr.io/organization/helm-charts). Helm appends the chart's name, and tags it with the chart's version.
+      Environment variables are expanded.
 steps:
   - run:
       environment:
         PARAM_CHART: << parameters.chart >>
         PARAM_PLAIN_HTTP: << parameters.plain_http >>
-        PARAM_REGISTRY: << parameters.registry >>
+        PARAM_REMOTE: << parameters.remote >>
       name: Push Helm Chart
       command: <<include(scripts/push.sh)>>

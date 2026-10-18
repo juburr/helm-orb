@@ -3,27 +3,31 @@ parameters:
   app_version:
     type: string
     description: "Version of the service or application to install."
-  chart_directory:
+  chart_dir:
     type: string
-    description: "Path to the directory containing the Chart.yaml file."
+    description: "Path to the chart directory, which contains the Chart.yaml file. Environment variables are expanded."
   chart_version:
     type: string
     description: "Version of the Helm chart itself."
-  env_output_package:
-    type: env_var_name
-    default: "HELM_PACKAGE"
-    description: "Environment variable to populate the final package filename with, for later use."
-  output_directory:
+  output_dir:
     type: string
     default: "."
-    description: Path to the directory to output the final package to.
+    description: >
+      Directory to write the packaged chart (.tgz file) to. It is created if it doesn't exist. Environment variables
+      are expanded.
+  package_env_var:
+    type: env_var_name
+    default: "HELM_PACKAGE"
+    description: >
+      Name of the environment variable this command sets, for later steps, to the absolute path of the packaged
+      chart (.tgz file).
 steps:
   - run:
       environment:
         PARAM_APP_VERSION: << parameters.app_version >>
-        PARAM_CHART_DIRECTORY: << parameters.chart_directory >>
+        PARAM_CHART_DIR: << parameters.chart_dir >>
         PARAM_CHART_VERSION: << parameters.chart_version >>
-        PARAM_ENV_OUTPUT_PACKAGE: << parameters.env_output_package >>
-        PARAM_OUTPUT_DIRECTORY: << parameters.output_directory >>
+        PARAM_OUTPUT_DIR: << parameters.output_dir >>
+        PARAM_PACKAGE_ENV_VAR: << parameters.package_env_var >>
       name: Package Helm Chart
       command: <<include(scripts/package.sh)>>
