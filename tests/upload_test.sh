@@ -174,6 +174,7 @@ request_was() { [[ "$(cat "${WORK}/requests" 2> /dev/null)" == "PUT $1 $2" ]]; }
 no_request() { [[ ! -e "${WORK}/requests" ]]; }
 curl_not_run() { [[ ! -e "${WORK}/curl-args" ]]; }
 args_lack() { ! grep -qF -- "$1" "${WORK}/curl-args"; }
+first_arg_is() { [[ "$(head -n 1 "${WORK}/curl-args")" == "$1" ]]; }
 tmp_is_empty() { [[ -z "$(ls -A "${WORK}/tmp")" ]]; }
 
 for url in "http://nexus.example/charts/" "https-nexus.example/charts/" "nexus.example/charts/"; do
@@ -223,6 +224,15 @@ check "prints the 500 response body" output_has "Repository storage is unavailab
 run_upload PARAM_URL="${SERVER}/moved/"
 check "fails on a redirect, which is not followed" rc_is_nonzero
 check "prints the redirect's response code" output_has "Response code: 302"
+
+# A runner's .curlrc must not change what upload does: with location there,
+# curl would follow the redirect to a 201 and report success.
+printf 'location\n' > "${WORK}/.curlrc"
+run_upload PARAM_URL="${SERVER}/moved/"
+rm -f "${WORK}/.curlrc"
+check "passes --disable as curl's first argument" first_arg_is "--disable"
+check "ignores a .curlrc that follows redirects" rc_is_nonzero
+check "stops at the redirect despite the .curlrc" output_has "Response code: 302"
 
 run_upload PARAM_URL="https://127.0.0.1:9/charts/"
 check "fails when the server is unreachable" rc_is_nonzero

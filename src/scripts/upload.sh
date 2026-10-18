@@ -83,10 +83,13 @@ curl_config_quote() {
 # Upload the Helm chart. The credentials reach curl in a config file read from
 # stdin (--config -), rather than as arguments that other processes could see.
 # printf is a shell builtin, so they never appear on a command line.
+# --disable, which curl only honors as its first argument, skips the runner's
+# .curlrc: an option there such as location would follow redirects and could
+# send the credentials to another URL.
 # Avoid verbose argument due to potential to leak headers; manually write out HTTP response code to debug instead.
 CURL_RC=0
 CURL_OUTPUT=$(printf 'user = %s\n' "$(curl_config_quote "${USERNAME}:${PASSWORD}")" \
-    | curl --config - --silent --show-error --upload-file "${CHART}" --output "${RESPONSE_FILE}" \
+    | curl --disable --config - --silent --show-error --upload-file "${CHART}" --output "${RESPONSE_FILE}" \
         --write-out '%{http_code} %{url_effective}' "${URL}") || CURL_RC=$?
 if [[ "${CURL_RC}" -ne 0 ]]; then
     echo "The upload failed: curl exited with code ${CURL_RC}."
