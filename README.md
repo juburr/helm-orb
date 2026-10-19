@@ -104,7 +104,7 @@ Add the orb, install Helm, package your chart, push it. Copy this into `.circlec
 version: 2.1
 
 orbs:
-  helm: juburr/helm-orb@0.8.0
+  helm: juburr/helm-orb@1.0.0
 
 jobs:
   publish_chart:
@@ -137,7 +137,7 @@ workflows:
 Swap in your chart directory, versions and registry, put `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` in the `registry-credentials` context (for GHCR, your GitHub username and a token that can write packages), and push. Helm appends the chart's name to `remote` and tags it with the chart's version, so a chart named `myservice` is published as `ghcr.io/my-org/helm-charts/myservice:1.0.0`. `chart_version` and `app_version` expand environment variables, so they can come from your build. For a repository that takes an HTTP PUT instead of OCI, see [Recipes](#-recipes).
 
 > [!TIP]
-> Upgrading from `push_raw` or the `*_directory` parameters? The next release renames a command and several parameters. See [Upgrading](#-upgrading).
+> Upgrading from `push_raw` or the `*_directory` parameters? v1.0.0 renames a command and several parameters. See [Upgrading](#-upgrading).
 
 > [!IMPORTANT]
 > The default Helm `version` has been Helm 4 since v0.7.0 of this orb. Pin `version` as shown, so Helm only changes when you decide to. See [Helm Versions](#-helm-versions) for what differs between Helm 3 and Helm 4.
@@ -247,7 +247,7 @@ v0.7.0 of this orb changed the default Helm `version` from 3.18.6 to 4.3.0 (Helm
 
 ```yaml
 orbs:
-  helm: juburr/helm-orb@0.8.0
+  helm: juburr/helm-orb@1.0.0
 jobs:
   publish-chart:
     docker:
@@ -259,7 +259,7 @@ jobs:
 
 Both major versions are tested in this orb's CI: `install`, `package`, `locate_chart`, `registry_login`, `push` and `registry_logout` run against Helm 3.22.0 and the default Helm 4 release. Differences between Helm 3 and Helm 4 that affect this orb:
 
-- `registry_login`: Helm 4 accepts a hostname only (for example `ghcr.io`, not `https://ghcr.io`), and it no longer falls back to plain HTTP. Set `plain_http: true` for registries without TLS (available from orb 0.8.0).
+- `registry_login`: Helm 4 accepts a hostname only (for example `ghcr.io`, not `https://ghcr.io`), and it no longer falls back to plain HTTP. Set `plain_http: true` for registries without TLS (available from orb v1.0.0).
 - `push`: Helm 3 and Helm 4 both need `plain_http: true` to push to a registry without TLS.
 
 Helm 3 stopped receiving bug fixes on September 9, 2026 and receives security fixes until February 10, 2027 ([announcement](https://helm.sh/blog/helm-v3-end-of-life)).
@@ -344,7 +344,7 @@ Environment variables are expanded in `install`'s `version` and `install_path`, 
 
 ## 📦 Upgrading
 
-The next release renames a command and several parameters, to use Helm's own terms and the names the other juburr orbs use. Update your config as follows:
+v1.0.0 renames a command and several parameters, to use Helm's own terms and the names the other juburr orbs use. Update your config as follows:
 
 | Old | New |
 | --- | --- |
@@ -402,7 +402,7 @@ The `install` command checks the `helm` binary from the downloaded release again
 The table covers Helm releases from 3.0.0 through 4.3.0, the default `version`. `src/scripts/install_hash.sh` checks each release archive against the SHA-256 checksum Helm publishes next to it on `get.helm.sh` before it prints the entry; [Contributing](#-contributing) covers releases with no published checksum. If you pin a Helm release newer than this orb, `strict` fails until the orb is upgraded. Upgrade the orb (or open a PR adding the checksum, generated with `src/scripts/install_hash.sh`) rather than opting out. `known_versions` and `false` remain available for cases where you accept running an unverified binary.
 
 > [!WARNING]
-> **Changed in the next release:** the default was previously `known_versions`, which installed unlisted versions without verification. Pipelines that pin a Helm version newer than the orb's table now fail until they upgrade the orb or set `verify_checksums: known_versions` explicitly.
+> **Changed in v1.0.0:** the default was previously `known_versions`, which installed unlisted versions without verification. Pipelines that pin a Helm version newer than the orb's table now fail until they upgrade the orb or set `verify_checksums: known_versions` explicitly.
 
 ## 🌐 Network Access
 
