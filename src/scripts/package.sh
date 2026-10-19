@@ -28,10 +28,10 @@ if [[ -n "${PACKAGE_ENV_VAR}" && ! "${PACKAGE_ENV_VAR}" =~ ^[A-Za-z_][A-Za-z0-9_
     exit 1
 fi
 
-# Determine package name. A missing name line is left for helm package to
-# report.
-PACKAGE_NAME=$({ grep '^name:' "${CHART_DIR}/Chart.yaml" || true; } | awk '{print $2}')
-echo "  PACKAGE_NAME: ${PACKAGE_NAME}"
+# helm package's output is kept so the path it saved the chart to can be read
+# back from it.
+PACKAGE_LOG=$(mktemp)
+trap 'rm -f "${PACKAGE_LOG}"' EXIT
 
 # Create output directory, in case it doesn't exist yet
 mkdir -p "${OUTPUT_DIR}"
@@ -42,17 +42,22 @@ helm package \
     --destination "${OUTPUT_DIR}" \
     --debug \
     --version "${CHART_VERSION}" \
-    "${CHART_DIR}"
+    "${CHART_DIR}" | tee "${PACKAGE_LOG}"
 
-# Extract and export filename for later use
+# Export the packaged chart's path for later use. Helm 3 and 4 both print the
+# path they saved the chart to, which is more reliable than rebuilding the file
+# name from Chart.yaml, where the name may be quoted.
 if [[ -n "${PACKAGE_ENV_VAR}" ]]; then
     if [[ -z "${BASH_ENV:-}" ]]; then
         echo "ERROR: BASH_ENV is unset, so ${PACKAGE_ENV_VAR} cannot be passed to later steps." >&2
         exit 1
     fi
-    # head stops find early when several files match; that is not an error.
-    OUTPUT_PATH=$(find "$(realpath "${OUTPUT_DIR}")" -maxdepth 1 -type f -name "*.tgz" \
-        -iname "*${PACKAGE_NAME}*" -iname "*${CHART_VERSION}*" | head -n 1) || true
+    OUTPUT_PATH=$(sed -n 's/^Successfully packaged chart and saved it to: //p' "${PACKAGE_LOG}")
+    if [[ -z "${OUTPUT_PATH}" || ! -f "${OUTPUT_PATH}" ]]; then
+        echo "ERROR: helm package did not report the path of a packaged chart, so ${PACKAGE_ENV_VAR} cannot be set." >&2
+        exit 1
+    fi
+    OUTPUT_PATH=$(realpath "${OUTPUT_PATH}")
     export "${PACKAGE_ENV_VAR}=${OUTPUT_PATH}"
     printf 'export %s=%q\n' "${PACKAGE_ENV_VAR}" "${OUTPUT_PATH}" | tee -a "${BASH_ENV}"
 fi
