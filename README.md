@@ -398,7 +398,7 @@ The `install` command checks the `helm` binary from the downloaded release again
 | `known_versions` | ✅ Verified; install fails on mismatch | ⚠️ Installed **unverified**, with a warning |
 | `false` | ⚠️ Not verified | ⚠️ Installed **unverified** |
 
-The table covers Helm releases from 3.0.0 through 4.3.0, the default `version`. `src/scripts/install_hash.sh` prints a new entry only after checking the release archive against the SHA-256 checksum Helm publishes next to it on `get.helm.sh`. If you pin a Helm release newer than this orb, `strict` fails until the orb is upgraded. Upgrade the orb (or open a PR adding the checksum, generated with `src/scripts/install_hash.sh`) rather than opting out. `known_versions` and `false` remain available for cases where you accept running an unverified binary.
+The table covers Helm releases from 3.0.0 through 4.3.0, the default `version`. `src/scripts/install_hash.sh` checks each release archive against the SHA-256 checksum Helm publishes next to it on `get.helm.sh` before it prints the entry; [Contributing](#-contributing) covers releases with no published checksum. If you pin a Helm release newer than this orb, `strict` fails until the orb is upgraded. Upgrade the orb (or open a PR adding the checksum, generated with `src/scripts/install_hash.sh`) rather than opting out. `known_versions` and `false` remain available for cases where you accept running an unverified binary.
 
 > [!WARNING]
 > **Changed in the next release:** the default was previously `known_versions`, which installed unlisted versions without verification. Pipelines that pin a Helm version newer than the orb's table now fail until they upgrade the orb or set `verify_checksums: known_versions` explicitly.
@@ -426,7 +426,7 @@ A registry is reached on the port in the value you pass (443 by default), over p
 This is an unofficial, community-maintained orb, and contributions are welcome! Bug reports, feature ideas and pull requests all help.
 
 - **Found a bug or have an idea?** [Open an issue](https://github.com/juburr/helm-orb/issues).
-- **Need a newer Helm release?** Generate its checksums with `src/scripts/install_hash.sh -v <version>`, paste them into the `sha512sums` table in [`src/scripts/install.sh`](src/scripts/install.sh), and open a pull request. The script checks each release archive against the SHA-256 checksum Helm publishes next to it on `get.helm.sh` before it prints an entry, and needs `curl`, `sha256sum`, `sha512sum`, `tar` and `gzip`.
+- **Need a newer Helm release?** Generate its checksums with `src/scripts/install_hash.sh -v <version>`, paste them into the `sha512sums` table in [`src/scripts/install.sh`](src/scripts/install.sh), and open a pull request. The script checks each release archive against the SHA-256 checksum Helm publishes next to it on `get.helm.sh` before it prints an entry, and needs `curl`, `sha256sum`, `sha512sum`, `tar` and `gzip`. For a release with nothing published to check against, `-c` takes a checksum from another official source, or `NONE`; it never overrides what the release did publish.
 - **Before opening a pull request**, run the checks CI runs. The tests run offline; `upload_test.sh` needs `python3`, `openssl` and `curl`. `circleci orb validate` checks the packed orb against the CircleCI API, so it needs network access.
 
   ```bash
