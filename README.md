@@ -279,7 +279,7 @@ Installs Helm for Linux on amd64 or arm64, matching the executor's CPU. In the d
 
 ### `helm/package`
 
-Packages a chart directory with `helm package`, stamping it with the chart and app versions you give, and exports the packaged chart's absolute path to later steps in the variable `package_env_var` names. Needs Helm on the `PATH`, so run `install` first.
+Packages a chart directory with `helm package`, stamping it with the chart and app versions you give, and exports the packaged chart's absolute path to later steps in the variable `package_env_var` names. The path is the one Helm reports saving the chart to, so the step fails if Helm reports none. Needs Helm on the `PATH`, so run `install` first.
 
 | Parameter | Default | Description |
 | --- | --- | --- |
@@ -366,6 +366,7 @@ If you relied on the old default credential variables, either rename those varia
 Behavior changes:
 - `upload` fails the step when the server responds with anything other than a 2xx status, and prints the response code and body. `push_raw` reported success on HTTP errors such as 401 or 500. The credentials now reach curl on stdin instead of its command line, and `upload` fails if either credential variable is unset or empty.
 - `package` and `locate_chart` shell-quote the path they export through `BASH_ENV`, so paths containing spaces or other special characters reach later steps intact.
+- `package` exports the path Helm reports saving the chart to, and fails the step if Helm reports none. It used to rebuild the file name from `Chart.yaml`, so a quoted chart name (`name: "mychart"`) exported an empty path while the step succeeded, and another `.tgz` in `output_dir` whose name contained the chart's name and version, such as `mychart-0.1.0-rc1.tgz`, could be exported instead of the new package.
 - Failure messages, such as `upload`'s "The upload failed: ...", now start with `ERROR:` and go to stderr. A step that searches a command's output for one must read stderr too.
 - `install` verifies in `strict` mode by default (it was `known_versions`), so a Helm version without a checksum in the orb fails before anything is downloaded; see [Checksum Verification](#-checksum-verification). `install_path` defaults to `$HOME/bin` (it was `/home/circleci/bin`, the same directory on CircleCI's images), must be an absolute path, and is added to the `PATH` of later steps when needed. `version` must be a release version, a binary that can't run on the executor fails the install, and `install` needs bash 4 or newer.
 
