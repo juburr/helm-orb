@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logos/helm-orb-logo.png" width="256" alt="Helm Orb logo: a bearded sailor steering a ship's wheel through stormy waves, framed by a round wooden porthole">
+<img src="assets/logos/helm-orb-512px.png" width="256" alt="Helm Orb logo: a ship's wheel with the CircleCI logo at its hub, rising out of a breaking wave under a bright sky, in a round badge">
 
 # Helm Orb for CircleCI
 
@@ -436,6 +436,10 @@ This is an unofficial, community-maintained orb, and contributions are welcome! 
   circleci orb pack src > orb.yml && circleci orb validate orb.yml
   ```
 
+## 🎨 Logo
+
+Need the logo for a slide deck, blog post, or internal developer portal? PNGs with transparent backgrounds are in [`assets/logos`](assets/logos): [64](assets/logos/helm-orb-64px.png) · [128](assets/logos/helm-orb-128px.png) · [256](assets/logos/helm-orb-256px.png) · [512](assets/logos/helm-orb-512px.png) · [1024](assets/logos/helm-orb-1024px.png) px
+
 ## 📜 License
 
 [MIT](LICENSE) © 2024-2025 Justin Burr
@@ -443,7 +447,7 @@ This is an unofficial, community-maintained orb, and contributions are welcome! 
 <br>
 
 <div align="center">
-  <img src="assets/logos/helm-orb-logo.png" width="64" alt="Helm Orb logo">
+  <img src="assets/logos/helm-orb-128px.png" width="64" alt="Helm Orb logo">
   <br>
   <sub>From <code>Chart.yaml</code> to registry in one job. If this orb helps your team, a ⭐ helps others find it.</sub>
   <br>
