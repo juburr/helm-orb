@@ -1,0 +1,37 @@
+name: Push a Helm chart to an OCI registry
+description: >
+  Pushes a packaged Helm chart (.tgz file) to an OCI registry with helm push.
+  Log in first with the registry_login action. Needs Helm from the install
+  action. The GitHub Actions twin of the orb's push command.
+author: juburr
+
+inputs:
+  chart:
+    description: >
+      Path to the Helm chart, packaged as a .tgz file. After the package or
+      locate_chart action, that path is in the HELM_PACKAGE environment
+      variable (env.HELM_PACKAGE in an expression).
+    required: true
+  plain_http:
+    description: >
+      Push over plain HTTP instead of HTTPS, for registries without TLS such as
+      a local test registry: true or false. Helm 3 and Helm 4 both require this
+      for HTTP registries. Requires Helm 3.13.0 or later.
+    default: "false"
+  remote:
+    description: >
+      OCI registry URL to push the chart to, oci://host[:port]/path, which is
+      Helm's [remote] argument (for example oci://ghcr.io/organization/helm-charts).
+      Helm appends the chart's name, and tags it with the chart's version.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Push Helm Chart
+      shell: bash
+      env:
+        PARAM_CHART: ${{ inputs.chart }}
+        PARAM_PLAIN_HTTP: ${{ inputs.plain_http }}
+        PARAM_REMOTE: ${{ inputs.remote }}
+      run: bash "${GITHUB_ACTION_PATH}/../run_script.sh" "${GITHUB_ACTION_PATH}/../../src/scripts/push.sh"

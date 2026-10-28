@@ -1,0 +1,45 @@
+name: Upload a Helm chart with an HTTP PUT
+description: >
+  Uploads a packaged Helm chart (.tgz file) with an HTTP PUT, such as to a
+  Nexus raw repository. The credentials reach curl on stdin, never on its
+  command line, and only over HTTPS. The step fails if the server responds with
+  anything other than a 2xx status, and prints the response code and body. The
+  GitHub Actions twin of the orb's upload command.
+author: juburr
+
+inputs:
+  chart:
+    description: >
+      Path to the Helm chart, packaged as a .tgz file. After the package or
+      locate_chart action, that path is in the HELM_PACKAGE environment
+      variable (env.HELM_PACKAGE in an expression).
+    required: true
+  password:
+    description: >
+      Name of the environment variable holding the password or token. Set it
+      in the env of the step that uses this action, from a secret.
+    default: HELM_REPO_PASSWORD
+  url:
+    description: >
+      https:// URL to upload the chart to: either a directory URL ending in
+      "/", to which the chart's file name is appended, or the full URL of the
+      file to create. Must start with https://, since the credentials are sent
+      in a request header.
+    required: true
+  username:
+    description: >
+      Name of the environment variable holding the username. Set it in the env
+      of the step that uses this action.
+    default: HELM_REPO_USERNAME
+
+runs:
+  using: composite
+  steps:
+    - name: Upload Helm Chart
+      shell: bash
+      env:
+        PARAM_CHART: ${{ inputs.chart }}
+        PARAM_PASSWORD: ${{ inputs.password }}
+        PARAM_URL: ${{ inputs.url }}
+        PARAM_USERNAME: ${{ inputs.username }}
+      run: bash "${GITHUB_ACTION_PATH}/../run_script.sh" "${GITHUB_ACTION_PATH}/../../src/scripts/upload.sh"

@@ -1,0 +1,42 @@
+name: Package a Helm chart
+description: >
+  Packages a Helm chart directory into a .tgz file with helm package, and sets
+  an environment variable, HELM_PACKAGE by default, to its absolute path for
+  later steps. Needs Helm from the install action. The GitHub Actions twin of
+  the orb's package command.
+author: juburr
+
+inputs:
+  app_version:
+    description: Version of the service or application to install.
+    required: true
+  chart_dir:
+    description: Path to the chart directory, which contains the Chart.yaml file.
+    required: true
+  chart_version:
+    description: Version of the Helm chart itself.
+    required: true
+  output_dir:
+    description: >
+      Directory to write the packaged chart (.tgz file) to. It is created if it
+      doesn't exist.
+    default: "."
+  package_env_var:
+    description: >
+      Name of the environment variable this action sets, for later steps, to
+      the absolute path of the packaged chart (.tgz file). Read it as
+      env.HELM_PACKAGE, or ${HELM_PACKAGE} in a run step.
+    default: HELM_PACKAGE
+
+runs:
+  using: composite
+  steps:
+    - name: Package Helm Chart
+      shell: bash
+      env:
+        PARAM_APP_VERSION: ${{ inputs.app_version }}
+        PARAM_CHART_DIR: ${{ inputs.chart_dir }}
+        PARAM_CHART_VERSION: ${{ inputs.chart_version }}
+        PARAM_OUTPUT_DIR: ${{ inputs.output_dir }}
+        PARAM_PACKAGE_ENV_VAR: ${{ inputs.package_env_var }}
+      run: bash "${GITHUB_ACTION_PATH}/../run_script.sh" "${GITHUB_ACTION_PATH}/../../src/scripts/package.sh"

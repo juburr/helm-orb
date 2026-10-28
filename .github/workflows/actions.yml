@@ -1,0 +1,315 @@
+# Tests the GitHub Actions in actions/ on GitHub's own runners, as
+# .circleci/test-deploy.yml tests the orb's commands on CircleCI. Each job
+# runs the actions from this checkout (uses: ./actions/...), so a pull
+# request tests its own changes.
+name: GitHub Actions
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run the offline tests
+        run: |
+          for test in tests/*_test.sh; do
+            echo "=== ${test}"
+            bash "${test}"
+          done
+
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            machine: x86_64
+            file_type: x86-64
+          - runner: ubuntu-24.04-arm
+            machine: aarch64
+            file_type: ARM aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Repositories often keep charts in a top-level helm/ directory, as in
+      # the README's examples. Install must not collide with it.
+      - name: Create a helm/ chart directory
+        run: mkdir -p helm/myapplication && touch helm/myapplication/Chart.yaml
+      - uses: ./actions/install
+      - name: Verify the install
+        env:
+          MACHINE: ${{ matrix.machine }}
+          FILE_TYPE: ${{ matrix.file_type }}
+        run: |
+          version=$(awk '/^  version:/ { found = 1 } found && /default:/ { gsub(/"/, "", $2); print $2; exit }' src/commands/install.yml)
+          [[ "$(uname -m)" == "${MACHINE}" ]]
+          # GitHub's runners include a Helm of their own, which the installed
+          # one must come before on the PATH.
+          [[ "$(command -v helm)" == "${HOME}/bin/helm" ]]
+          file -L "$(command -v helm)" | grep -F "${FILE_TYPE}"
+          echo "Expected v${version}, installed $(helm version --template '{{ .Version }}')"
+          [[ "$(helm version --template '{{ .Version }}')" == "v${version}" ]]
+          [[ -f helm/myapplication/Chart.yaml ]]
+      # The first install saved the release to the cache, so this one
+      # restores it. It goes to a directory of its own, which later steps
+      # find first on the PATH.
+      - uses: ./actions/install
+        with:
+          install_path: ${{ runner.temp }}/second
+      - name: Verify the second install comes first on the PATH
+        env:
+          SECOND: ${{ runner.temp }}/second
+        run: |
+          [[ "$(command -v helm)" == "${SECOND}/helm" ]]
+          helm version
+      - name: Install an unlisted version, which must fail
+        id: unlisted
+        continue-on-error: true
+        uses: ./actions/install
+        with:
+          version: 0.0.1
+          caching: false
+          install_path: ${{ runner.temp }}/unlisted
+      - name: Verify it failed before installing anything
+        env:
+          OUTCOME: ${{ steps.unlisted.outcome }}
+          UNLISTED: ${{ runner.temp }}/unlisted
+        run: |
+          [[ "${OUTCOME}" == failure ]]
+          [[ ! -e "${UNLISTED}/helm" ]]
+
+  # A fresh runner with Helm's download host blocked installs from the cache
+  # the install job saved, which only works if the cache is used.
+  install-from-cache:
+    needs: install
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Block the download host
+        run: |
+          echo "127.0.0.1 get.helm.sh" | sudo tee -a /etc/hosts
+          if curl -sSf --max-time 10 -o /dev/null https://get.helm.sh; then
+            echo "get.helm.sh is still reachable."
+            exit 1
+          fi
+      - uses: ./actions/install
+      - name: Verify the install
+        run: |
+          version=$(awk '/^  version:/ { found = 1 } found && /default:/ { gsub(/"/, "", $2); print $2; exit }' src/commands/install.yml)
+          [[ "$(command -v helm)" == "${HOME}/bin/helm" ]]
+          [[ "$(helm version --template '{{ .Version }}')" == "v${version}" ]]
+
+  # Runs every action under one Helm version, as test-deploy.yml's
+  # helm-conformance-test does: package, locate_chart, registry_login, push
+  # and registry_logout against a local registry over plain HTTP, here one
+  # that requires a login, and upload to a local HTTPS server. DIST_DIR
+  # contains a space, so the paths package and locate_chart pass to later
+  # steps must keep it, and the chart's name is quoted in Chart.yaml.
+  conformance:
+    strategy:
+      fail-fast: false
+      matrix:
+        helm_version: ["3.22.0", "default"]
+    runs-on: ubuntu-24.04
+    env:
+      REGISTRY_HOST: localhost:5000
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set the chart paths
+        run: |
+          {
+            echo "CHART_DIR=${RUNNER_TEMP}/conformance/testchart"
+            echo "DIST_DIR=${RUNNER_TEMP}/conformance/chart packages"
+          } >> "${GITHUB_ENV}"
+      - name: Start a registry that requires a login
+        env:
+          # Placeholder credentials for the throwaway registry.
+          REGISTRY_USER: ci-user
+          REGISTRY_SECRET: ci-password
+        run: |
+          # mirror.gcr.io serves the Docker Hub images without Docker Hub's
+          # anonymous pull limits. A pull from it can time out, so pull with
+          # retries before running them.
+          for image in mirror.gcr.io/library/httpd:2 mirror.gcr.io/library/registry:2; do
+            for attempt in 1 2 3; do
+              docker pull "${image}" && break
+              sleep $((attempt * 10))
+            done
+          done
+          mkdir -p "${RUNNER_TEMP}/registry-auth"
+          docker run --rm --entrypoint htpasswd mirror.gcr.io/library/httpd:2 -Bbn "${REGISTRY_USER}" "${REGISTRY_SECRET}" \
+            > "${RUNNER_TEMP}/registry-auth/htpasswd"
+          docker run -d --name registry -p 5000:5000 -v "${RUNNER_TEMP}/registry-auth:/auth" \
+            -e REGISTRY_AUTH=htpasswd -e REGISTRY_AUTH_HTPASSWD_REALM=helm-orb-ci \
+            -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd mirror.gcr.io/library/registry:2
+          # A 401 means the registry is up and refuses anonymous requests.
+          for _ in $(seq 1 30); do
+            if [[ "$(curl -s -o /dev/null -w '%{http_code}' "http://${REGISTRY_HOST}/v2/")" == "401" ]]; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The registry did not start."
+          docker logs registry
+          exit 1
+      - name: Start an HTTPS server that takes uploads
+        run: |
+          mkdir -p "${RUNNER_TEMP}/upload/received"
+          cd "${RUNNER_TEMP}/upload"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=127.0.0.1" \
+            -addext "subjectAltName=IP:127.0.0.1" -keyout key.pem -out cert.pem 2> /dev/null
+          # Saves each PUT's body under its path, and logs the path and the
+          # Authorization header.
+          cat > server.py << 'EOF'
+          import http.server, os, ssl
+
+          class Handler(http.server.BaseHTTPRequestHandler):
+              def do_PUT(self):
+                  body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                  with open("requests", "a") as log:
+                      log.write(f"PUT {self.path} {self.headers.get('Authorization', '-')}\n")
+                  with open(os.path.join("received", os.path.basename(self.path)), "wb") as received:
+                      received.write(body)
+                  self.send_response(201)
+                  self.send_header("Content-Length", "0")
+                  self.end_headers()
+
+          server = http.server.HTTPServer(("127.0.0.1", 8443), Handler)
+          context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+          context.load_cert_chain("cert.pem", "key.pem")
+          server.socket = context.wrap_socket(server.socket, server_side=True)
+          server.serve_forever()
+          EOF
+          nohup python3 server.py > server.log 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl -s --cacert cert.pem -o /dev/null https://127.0.0.1:8443/; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The HTTPS server did not start."
+          cat server.log
+          exit 1
+      - if: matrix.helm_version == 'default'
+        uses: ./actions/install
+      - if: matrix.helm_version != 'default'
+        uses: ./actions/install
+        with:
+          version: ${{ matrix.helm_version }}
+      - name: Verify the Helm version
+        env:
+          EXPECTED_VERSION: ${{ matrix.helm_version }}
+        run: |
+          if [[ "${EXPECTED_VERSION}" == "default" ]]; then
+            EXPECTED_VERSION=$(awk '/^  version:/ { found = 1 } found && /default:/ { gsub(/"/, "", $2); print $2; exit }' src/commands/install.yml)
+          fi
+          ACTUAL_VERSION=$(helm version --template '{{ .Version }}')
+          echo "Expected v${EXPECTED_VERSION}, installed ${ACTUAL_VERSION}"
+          [[ "${ACTUAL_VERSION}" == "v${EXPECTED_VERSION}" ]]
+      - name: Create and lint the test chart
+        run: |
+          mkdir -p "$(dirname "${CHART_DIR}")"
+          helm create "${CHART_DIR}"
+          sed -i 's/^name: testchart$/name: "testchart"/' "${CHART_DIR}/Chart.yaml"
+          grep -x 'name: "testchart"' "${CHART_DIR}/Chart.yaml"
+          helm lint --strict "${CHART_DIR}"
+      - uses: ./actions/package
+        with:
+          app_version: 1.2.3
+          chart_dir: ${{ env.CHART_DIR }}
+          chart_version: 0.1.0
+          output_dir: ${{ env.DIST_DIR }}
+      - uses: ./actions/locate_chart
+        with:
+          chart_name: testchart
+          chart_version: 0.1.0
+          package_env_var: LOCATED_CHART
+          search_dir: ${{ env.DIST_DIR }}
+      - name: Verify the packaged chart
+        run: |
+          echo "HELM_PACKAGE=${HELM_PACKAGE}"
+          echo "LOCATED_CHART=${LOCATED_CHART}"
+          [[ "${HELM_PACKAGE}" == "${DIST_DIR}/testchart-0.1.0.tgz" ]]
+          [[ "${LOCATED_CHART}" == "${HELM_PACKAGE}" ]]
+          helm show chart "${HELM_PACKAGE}" | grep -x 'appVersion: 1.2.3'
+      # The credentials are set in the env of the step that uses the action,
+      # as a workflow sets them from secrets.
+      - name: Log in with a wrong password, which must fail
+        id: wrong-password
+        continue-on-error: true
+        uses: ./actions/registry_login
+        env:
+          REGISTRY_USERNAME: ci-user
+          REGISTRY_PASSWORD: not-the-password
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+          plain_http: true
+      - name: Verify the wrong password was refused
+        env:
+          OUTCOME: ${{ steps.wrong-password.outcome }}
+        run: '[[ "${OUTCOME}" == failure ]]'
+      - uses: ./actions/registry_login
+        env:
+          REGISTRY_USERNAME: ci-user
+          REGISTRY_PASSWORD: ci-password
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+          plain_http: true
+      - uses: ./actions/push
+        with:
+          chart: ${{ env.LOCATED_CHART }}
+          remote: oci://${{ env.REGISTRY_HOST }}/helm-orb-ci
+          plain_http: true
+      - name: Verify the pushed chart
+        run: |
+          helm show chart --plain-http "oci://${REGISTRY_HOST}/helm-orb-ci/testchart" --version 0.1.0 | tee "${RUNNER_TEMP}/pushed-chart.yaml"
+          grep -x 'version: 0.1.0' "${RUNNER_TEMP}/pushed-chart.yaml"
+      - uses: ./actions/registry_logout
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+      - name: Verify the registry refuses Helm after logout
+        run: |
+          if helm show chart --plain-http "oci://${REGISTRY_HOST}/helm-orb-ci/testchart" --version 0.1.0; then
+            echo "Helm read the registry after logout."
+            exit 1
+          fi
+      - uses: ./actions/upload
+        env:
+          CURL_CA_BUNDLE: ${{ runner.temp }}/upload/cert.pem
+          HELM_REPO_USERNAME: ci-user
+          HELM_REPO_PASSWORD: ci-password
+        with:
+          chart: ${{ env.HELM_PACKAGE }}
+          url: https://127.0.0.1:8443/charts/
+      - name: Verify the upload
+        run: |
+          cd "${RUNNER_TEMP}/upload"
+          cat requests
+          expected_auth="Basic $(printf '%s' ci-user:ci-password | base64 | tr -d '\n')"
+          [[ "$(cat requests)" == "PUT /charts/testchart-0.1.0.tgz ${expected_auth}" ]]
+          cmp received/testchart-0.1.0.tgz "${HELM_PACKAGE}"

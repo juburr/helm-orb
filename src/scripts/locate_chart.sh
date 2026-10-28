@@ -2,12 +2,23 @@
 
 set -euo pipefail
 
+# subst VALUE: expands environment variables in VALUE with the CircleCI CLI,
+# which reads it on stdin. Without the CLI, as in GitHub Actions or a local
+# run, the value is used as it is.
+subst() {
+    if command -v circleci > /dev/null 2>&1; then
+        printf '%s' "$1" | circleci env subst
+    else
+        printf '%s\n' "$1"
+    fi
+}
+
 # Prepare orb parameters. PACKAGE_ENV_VAR is a variable name, so it is not
 # substituted.
-CHART_NAME=$(printf '%s' "${PARAM_CHART_NAME}" | circleci env subst)
-CHART_VERSION=$(printf '%s' "${PARAM_CHART_VERSION}" | circleci env subst)
+CHART_NAME=$(subst "${PARAM_CHART_NAME}")
+CHART_VERSION=$(subst "${PARAM_CHART_VERSION}")
 PACKAGE_ENV_VAR="${PARAM_PACKAGE_ENV_VAR}"
-SEARCH_DIR=$(printf '%s' "${PARAM_SEARCH_DIR}" | circleci env subst)
+SEARCH_DIR=$(subst "${PARAM_SEARCH_DIR}")
 
 # Remove trailing slash from the directory path, if present.
 SEARCH_DIR="${SEARCH_DIR%/}"

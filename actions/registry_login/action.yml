@@ -1,0 +1,46 @@
+name: Log in to an OCI registry with Helm
+description: >
+  Logs Helm in to an OCI registry with helm registry login, so the push action
+  and later helm commands can use it. The password reaches Helm on stdin,
+  never on its command line. Run registry_logout when the job no longer needs
+  the credentials. Needs Helm from the install action. The GitHub Actions twin
+  of the orb's registry_login command.
+author: juburr
+
+inputs:
+  password:
+    description: >
+      Name of the environment variable holding the password or token. Set it
+      in the env of the step that uses this action, from a secret.
+    default: REGISTRY_PASSWORD
+  plain_http:
+    description: >
+      Log in over plain HTTP instead of HTTPS, for registries without TLS such
+      as a local test registry: true or false. Helm 4 requires this for HTTP
+      registries, while Helm 3 falls back to HTTP without it. Requires Helm
+      3.18.0 or later.
+    default: "false"
+  registry:
+    description: >
+      Registry hostname to log in to, with an optional port (for example
+      ghcr.io or localhost:5000). Helm 4 accepts a hostname only and rejects a
+      URL scheme or repository path, so pass the bare host here, not the
+      oci:// URL that push takes as remote.
+    required: true
+  username:
+    description: >
+      Name of the environment variable holding the username. Set it in the env
+      of the step that uses this action.
+    default: REGISTRY_USERNAME
+
+runs:
+  using: composite
+  steps:
+    - name: Helm Registry Login
+      shell: bash
+      env:
+        PARAM_PASSWORD: ${{ inputs.password }}
+        PARAM_PLAIN_HTTP: ${{ inputs.plain_http }}
+        PARAM_REGISTRY: ${{ inputs.registry }}
+        PARAM_USERNAME: ${{ inputs.username }}
+      run: bash "${GITHUB_ACTION_PATH}/../run_script.sh" "${GITHUB_ACTION_PATH}/../../src/scripts/registry_login.sh"

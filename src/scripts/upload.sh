@@ -4,10 +4,21 @@ set -euo pipefail
 # A job can turn xtrace on for every step (SHELLOPTS, or set -x in $BASH_ENV), and it would print the credentials.
 set +o xtrace
 
+# subst VALUE: expands environment variables in VALUE with the CircleCI CLI,
+# which reads it on stdin. Without the CLI, as in GitHub Actions or a local
+# run, the value is used as it is.
+subst() {
+    if command -v circleci > /dev/null 2>&1; then
+        printf '%s' "$1" | circleci env subst
+    else
+        printf '%s\n' "$1"
+    fi
+}
+
 # Prepare orb parameters. PARAM_USERNAME and PARAM_PASSWORD hold the names of
 # the environment variables that hold the credentials, not the credentials.
-CHART=$(printf '%s' "${PARAM_CHART}" | circleci env subst)
-URL=$(printf '%s' "${PARAM_URL}" | circleci env subst)
+CHART=$(subst "${PARAM_CHART}")
+URL=$(subst "${PARAM_URL}")
 USERNAME_VAR="${PARAM_USERNAME}"
 PASSWORD_VAR="${PARAM_PASSWORD}"
 
