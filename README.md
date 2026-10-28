@@ -2,27 +2,29 @@
 
 <img src="assets/logos/helm-orb-512px.png" width="256" alt="Helm Orb logo: a ship's wheel with the CircleCI logo at its hub, rising out of a breaking wave under a bright sky, in a round badge">
 
-# Helm Orb for CircleCI
+# Helm for CircleCI and GitHub Actions
 
-### Package your Helm charts and ship them to your registry, straight from CircleCI.
+### Package your Helm charts and ship them to your registry, straight from CI.
 
 Install a checksum-verified [Helm](https://helm.sh), package your chart, and push it to an OCI registry<br>
-or upload it to an HTTPS repository, in a few steps of CircleCI config.<br>
+or upload it to an HTTPS repository, in a few steps of CircleCI config or GitHub Actions.<br>
 Strict SHA-512 verification by default · No `sudo` · Passwords never on the command line
 
 [![CircleCI Build Status](https://circleci.com/gh/juburr/helm-orb.svg?style=shield "CircleCI Build Status")](https://circleci.com/gh/juburr/helm-orb)
+[![GitHub Actions Status](https://github.com/juburr/helm-orb/actions/workflows/actions.yml/badge.svg?branch=main "GitHub Actions Status")](https://github.com/juburr/helm-orb/actions/workflows/actions.yml)
 [![CircleCI Orb Version](https://badges.circleci.com/orbs/juburr/helm-orb.svg)](https://circleci.com/developer/orbs/orb/juburr/helm-orb)
 [![GitHub License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 [![CircleCI Community](https://img.shields.io/badge/community-CircleCI%20Discuss-343434.svg)](https://discuss.circleci.com/c/ecosystem/orbs)
 
+![CircleCI orb and GitHub Actions](https://img.shields.io/badge/CI-CircleCI%20%7C%20GitHub%20Actions-F97316?style=for-the-badge)
 ![Helm 3.x and 4.x](https://img.shields.io/badge/Helm-3.x%20%7C%204.x-7C3AED?style=for-the-badge&logo=helm&logoColor=white)
-![amd64 and arm64](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-0EA5E9?style=for-the-badge&logo=linux&logoColor=white)
+![amd64 and arm64 executors and runners](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-0EA5E9?style=for-the-badge&logo=linux&logoColor=white)
 ![SHA-512 verified by default](https://img.shields.io/badge/SHA--512-strict%20by%20default-16A34A?style=for-the-badge)
 ![No sudo required](https://img.shields.io/badge/sudo-not%20required-DB2777?style=for-the-badge)
 
-**[Quick Start](#-quick-start)** · **[Features](#-why-helm-orb)** · **[Recipes](#-recipes)** · **[Commands](#-commands)** · **[Upgrading](#-upgrading)** · **[Security](#-secure-by-design)** · **[Network Access](#-network-access)**
+**[Quick Start](#-quick-start)** · **[Features](#-why-helm-orb)** · **[Recipes](#-recipes)** · **[CircleCI Commands](#-circleci-commands)** · **[GitHub Actions](#-github-actions)** · **[Upgrading](#-upgrading)** · **[Security](#-secure-by-design)** · **[Network Access](#-network-access)**
 
-<sub>An unofficial, community-maintained orb. [Contributions are welcome!](#-contributing)</sub>
+<sub>An unofficial, community-maintained CircleCI orb and set of GitHub Actions. [Contributions are welcome!](#-contributing)</sub>
 
 </div>
 
@@ -56,7 +58,7 @@ Credential parameters name environment variables. Passwords reach Helm and curl 
 </td>
 <td width="33%" valign="top">
 🦾 <b>amd64 and arm64</b><br><br>
-Picks the right Helm build for x86_64 executors and CircleCI Arm resource classes, cached per version and architecture.
+Picks the right Helm build for x86_64 executors, CircleCI Arm resource classes and GitHub's arm64 runners, cached per version and architecture.
 </td>
 </tr>
 </table>
@@ -98,13 +100,13 @@ flowchart LR
 
 ## 🚀 Quick Start
 
-Add the orb, install Helm, package your chart, push it. Copy this into `.circleci/config.yml`:
+Install Helm, package your chart, push it. On CircleCI, add the orb to `.circleci/config.yml`:
 
 ```yaml
 version: 2.1
 
 orbs:
-  helm: juburr/helm-orb@1.0.0
+  helm: juburr/helm-orb@1.1.0
 
 jobs:
   publish_chart:
@@ -134,7 +136,48 @@ workflows:
           context: registry-credentials
 ```
 
-Swap in your chart directory, versions and registry, put `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` in the `registry-credentials` context (for GHCR, your GitHub username and a token that can write packages), and push. Helm appends the chart's name to `remote` and tags it with the chart's version, so a chart named `myservice` is published as `ghcr.io/my-org/helm-charts/myservice:1.0.0`. `chart_version` and `app_version` expand environment variables, so they can come from your build. For a repository that takes an HTTP PUT instead of OCI, see [Recipes](#-recipes).
+On GitHub Actions, use the actions of the same names in a workflow, such as `.github/workflows/publish-chart.yml`:
+
+```yaml
+name: Publish chart
+
+on: push
+
+jobs:
+  publish-chart:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: juburr/helm-orb/actions/install@v1.1.0
+        with:
+          version: "4.3.0"
+      - uses: juburr/helm-orb/actions/package@v1.1.0
+        with:
+          chart_dir: charts/myservice
+          chart_version: 1.0.0
+          app_version: 2.4.1
+      # Reads the credentials from the variables set in this step's env.
+      - uses: juburr/helm-orb/actions/registry_login@v1.1.0
+        env:
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          registry: ghcr.io
+      - uses: juburr/helm-orb/actions/push@v1.1.0
+        with:
+          chart: ${{ env.HELM_PACKAGE }}
+          remote: oci://ghcr.io/my-org/helm-charts
+      - uses: juburr/helm-orb/actions/registry_logout@v1.1.0
+        with:
+          registry: ghcr.io
+```
+
+See [GitHub Actions](#-github-actions) for how the actions map to the orb's commands.
+
+Swap in your chart directory, versions and registry, put `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` in the `registry-credentials` context (for GHCR, your GitHub username and a token that can write packages; on GitHub Actions, the job's `GITHUB_TOKEN` with `packages: write`), and push. Helm appends the chart's name to `remote` and tags it with the chart's version, so a chart named `myservice` is published as `ghcr.io/my-org/helm-charts/myservice:1.0.0`. On CircleCI, `chart_version` and `app_version` expand environment variables, so they can come from your build; on GitHub Actions, use an expression such as `${{ github.ref_name }}`. For a repository that takes an HTTP PUT instead of OCI, see [Recipes](#-recipes).
 
 > [!TIP]
 > Upgrading from `push_raw` or the `*_directory` parameters? v1.0.0 renames a command and several parameters. See [Upgrading](#-upgrading).
@@ -247,7 +290,7 @@ v0.7.0 of this orb changed the default Helm `version` from 3.18.6 to 4.3.0 (Helm
 
 ```yaml
 orbs:
-  helm: juburr/helm-orb@1.0.0
+  helm: juburr/helm-orb@1.1.0
 jobs:
   publish-chart:
     docker:
@@ -264,7 +307,7 @@ Both major versions are tested in this orb's CI: `install`, `package`, `locate_c
 
 Helm 3 stopped receiving bug fixes on September 9, 2026 and receives security fixes until February 10, 2027 ([announcement](https://helm.sh/blog/helm-v3-end-of-life)).
 
-## 🧰 Commands
+## 🧰 CircleCI Commands
 
 ### `helm/install`
 
@@ -342,7 +385,36 @@ Uploads a packaged chart with an HTTP PUT, such as to a Nexus raw repository. Th
 
 Environment variables are expanded in `install`'s `version` and `install_path`, `package`'s `chart_dir`, `chart_version`, `app_version` and `output_dir`, `locate_chart`'s `chart_name`, `chart_version` and `search_dir`, `registry_login`'s and `registry_logout`'s `registry`, `push`'s `chart` and `remote`, and `upload`'s `chart` and `url`.
 
+## ⚡ GitHub Actions
+
+Each of the orb's commands has a GitHub Action of the same name. The actions run the same scripts as the orb, so they install, verify, package and publish the same way, and take the same inputs with the same defaults.
+
+| Action | Orb command | Inputs |
+| --- | --- | --- |
+| `juburr/helm-orb/actions/install` | [`helm/install`](#helminstall) | `version`, `install_path`, `verify_checksums`, `caching` |
+| `juburr/helm-orb/actions/package` | [`helm/package`](#helmpackage) | `chart_dir`, `chart_version`, `app_version` (required), `output_dir`, `package_env_var` |
+| `juburr/helm-orb/actions/locate_chart` | [`helm/locate_chart`](#helmlocate_chart) | `chart_name`, `chart_version`, `search_dir`, `package_env_var` |
+| `juburr/helm-orb/actions/registry_login` | [`helm/registry_login`](#helmregistry_login) | `registry` (required), `username`, `password`, `plain_http` |
+| `juburr/helm-orb/actions/push` | [`helm/push`](#helmpush) | `chart`, `remote` (required), `plain_http` |
+| `juburr/helm-orb/actions/registry_logout` | [`helm/registry_logout`](#helmregistry_logout) | `registry` (required) |
+| `juburr/helm-orb/actions/upload` | [`helm/upload`](#helmupload) | `chart`, `url` (required), `username`, `password` |
+
+The [Quick Start](#-quick-start) shows a complete workflow, and the [Recipes](#-recipes) use the same inputs. How the actions differ from the orb's commands:
+
+- **Versions.** An action is referenced by the repository's release tag, such as `v1.1.0`, the same tag the orb is published from. There is no moving major tag such as `v1` yet. For the strongest pinning, use the tag's commit SHA: `juburr/helm-orb/actions/push@<sha> # v1.1.0`.
+- **Credentials.** `registry_login` and `upload` take the *names* of environment variables, as the commands do. Set those variables in the `env` of the step that uses the action, from secrets, as the Quick Start does. The values reach Helm and curl on stdin, never on a command line.
+- **Environment variables.** The orb expands `$NAME` in its string parameters with the CircleCI CLI, which GitHub's runners don't have, so the actions take values as they are. Use GitHub's expressions instead, such as `chart_version: ${{ github.ref_name }}`. A leading `~` in `install_path` is still the home directory.
+- **The packaged chart's path.** `package` and `locate_chart` set `HELM_PACKAGE`, or the variable `package_env_var` names, for later steps through `GITHUB_ENV`. Read it as `${{ env.HELM_PACKAGE }}` in an input, or `${HELM_PACKAGE}` in a `run` step.
+- **`plain_http`.** CircleCI checks the orb's booleans before any step runs. The actions' inputs are plain strings, which the scripts check before running Helm: `plain_http` takes `true` or `false`.
+- **Caching.** `caching` stores the verified release with [`actions/cache`](https://github.com/actions/cache), with the same key ingredients as the orb (Helm version, CPU architecture, home directory). The cache is restored before the install and saved right after it, and the release is verified again when restored. It counts toward the repository's GitHub Actions cache storage.
+- **`PATH`.** GitHub's Ubuntu runners include a Helm of their own. `install` adds `install_path` to the `PATH` of later steps through `GITHUB_PATH`, which puts it ahead of the runner's Helm, so later steps run the verified one.
+- **Runners.** CI installs on `ubuntu-24.04` and `ubuntu-24.04-arm`, and runs every action on `ubuntu-24.04` under Helm 3.22.0 and the default Helm 4 release, against a local registry that requires a login and a local HTTPS server.
+
+The actions are composite actions in [`actions/`](actions), next to the orb's source. Each passes its inputs to the orb's script as environment variables, and [`actions/run_script.sh`](actions/run_script.sh) gives the script what CircleCI would: a `BASH_ENV` file for the values it hands to later steps, which it then passes on through `GITHUB_PATH` and `GITHUB_ENV`.
+
 ## 📦 Upgrading
+
+Upgrading from v1.0.0 to v1.1.0? Nothing changes for CircleCI pipelines: v1.1.0 adds [GitHub Actions](#-github-actions) for every command. The command scripts now also run without the CircleCI CLI, using values as they are.
 
 v1.0.0 renames a command and several parameters, to use Helm's own terms and the names the other juburr orbs use. Update your config as follows:
 
@@ -375,7 +447,7 @@ Behavior changes:
 - **Least Privilege**: Installs to a user-owned directory by default, with no `sudo` usage anywhere in this orb.
 - **Integrity**: SHA-512 checksum validation of the downloaded Helm binary, on by default and failing closed: a Helm version this orb has no checksum for is refused before anything is downloaded, and a binary that can't run on the executor never replaces an existing install. See [Checksum Verification](#-checksum-verification) for the `known_versions` and `false` opt-outs.
 - **Provenance**: Installs directly from `get.helm.sh`, the download site of the [Helm project](https://helm.sh/). No third-party websites, domains, or proxies are used.
-- **Confidentiality**: Credential parameters take the *names* of environment variables, never their values. `registry_login` passes the password to Helm on stdin and `upload` passes both credentials to curl on stdin, so they never appear on a command line, and both turn xtrace off first so a job that traces its steps doesn't print them. `upload` sends credentials over `https://` only. All secrets and environment variables are handled in accordance with CircleCI's [security recommendations](https://circleci.com/docs/security-recommendations/) and [best practices](https://circleci.com/docs/orbs-best-practices/).
+- **Confidentiality**: Credential parameters take the *names* of environment variables, never their values. `registry_login` passes the password to Helm on stdin and `upload` passes both credentials to curl on stdin, so they never appear on a command line, and both turn xtrace off first so a job that traces its steps doesn't print them. `upload` sends credentials over `https://` only. All secrets and environment variables are handled in accordance with CircleCI's [security recommendations](https://circleci.com/docs/security-recommendations/) and [best practices](https://circleci.com/docs/orbs-best-practices/). The GitHub Actions pass inputs to the scripts as environment variables, never pasting them into a script, and pin the actions they use (`actions/cache`) to a commit SHA.
 - **Privacy**: No usage data of any kind is collected or shipped back to the orb developer.
 
 > [!IMPORTANT]
@@ -388,6 +460,8 @@ Linux executors on `x86_64` (amd64) and `aarch64`/`arm64` (arm64), including Cir
 `install` needs bash 4 or newer, `curl` or `wget`, `awk`, `tar`, `gzip`, and the standard coreutils, including `mktemp` and, when it verifies, `sha512sum`. CircleCI's `cimg` and machine images have all of them; on an image that lacks one, such as Red Hat UBI, install it in an earlier step (for example `microdnf install -y tar gzip`).
 
 The download cache is keyed by Helm version, executor architecture and home directory, so amd64 and arm64 jobs never share a cached release. On executors whose `PATH` doesn't already include `install_path` (for example, machine executors), `install` adds it for later steps through `BASH_ENV`.
+
+The [GitHub Actions](#-github-actions) run on GitHub-hosted `ubuntu-24.04` (amd64) and `ubuntu-24.04-arm` (arm64) runners, which CI covers, and on self-hosted Linux runners with the same tools.
 
 ## 🔐 Checksum Verification
 
@@ -413,6 +487,8 @@ Hosts to allow (HTTPS, port 443) when running on a locked-down, self-hosted runn
 | `get.helm.sh` | `install` | Helm release download. This is the only host the orb's scripts contact on their own. Downloads are served directly from it, with no redirects to other hosts. |
 | `circleci-tasks-prod.s3.us-east-1.amazonaws.com` | `install` with `caching: true` (the default), on CircleCI cloud with self-hosted runners | CircleCI's cache storage, used by the built-in `restore_cache` and `save_cache` steps (see the [runner FAQ](https://circleci.com/docs/guides/execution-runner/runner-faqs/#what-connectivity-is-required)). Set `caching: false` to avoid it. |
 
+With `caching`, the GitHub `install` action also reaches GitHub's cache service through `actions/cache`. GitHub-hosted runners always can; a self-hosted runner needs the hosts GitHub lists for [communication with GitHub](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners#communication-between-self-hosted-runners-and-github).
+
 Hosts you configure, contacted only by the commands that take them:
 
 | Host | Needed by | Purpose |
@@ -428,7 +504,7 @@ This is an unofficial, community-maintained orb, and contributions are welcome! 
 
 - **Found a bug or have an idea?** [Open an issue](https://github.com/juburr/helm-orb/issues).
 - **Need a newer Helm release?** Generate its checksums with `src/scripts/install_hash.sh -v <version>`, paste them into the `sha512sums` table in [`src/scripts/install.sh`](src/scripts/install.sh), and open a pull request. The script checks each release archive against the SHA-256 checksum Helm publishes next to it on `get.helm.sh` before it prints an entry, and needs bash 4 or newer, `curl`, `awk`, `sed`, `tar`, `gzip` and the standard coreutils, including `mktemp`, `sha256sum` and `sha512sum`. For a release with nothing published to check against, `-c` takes a checksum from another official source (a SHA-1 one also needs `sha1sum`), or `NONE`; it never overrides what the release did publish.
-- **Before opening a pull request**, run the checks CI runs. The tests run offline; `upload_test.sh` needs `python3`, `openssl` and `curl`. `circleci orb validate` checks the packed orb against the CircleCI API, so it needs network access.
+- **Before opening a pull request**, run the checks CI runs. The tests run offline, with stand-ins for `helm` where they need it; `upload_test.sh` needs `python3`, `openssl` and `curl`. `circleci orb validate` checks the packed orb against the CircleCI API, so it needs network access. CI also runs the orb's commands on CircleCI and the actions on GitHub's runners. A change to a command's parameters needs the same change to its action in `actions/`, which `tests/actions_test.sh` checks.
 
   ```bash
   yamllint .
@@ -452,5 +528,5 @@ Need the logo for a slide deck, blog post, or internal developer portal? PNGs wi
   <br>
   <sub>From <code>Chart.yaml</code> to registry in one job. If this orb helps your team, a ⭐ helps others find it.</sub>
   <br>
-  <sub><a href="#helm-orb-for-circleci">Back to top ↑</a></sub>
+  <sub><a href="#helm-for-circleci-and-github-actions">Back to top ↑</a></sub>
 </div>

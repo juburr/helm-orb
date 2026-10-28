@@ -1,0 +1,22 @@
+name: Log out of an OCI registry with Helm
+description: >
+  Removes the credentials helm registry login stored for a registry, with helm
+  registry logout. Needs Helm from the install action. The GitHub Actions twin
+  of the orb's registry_logout command.
+author: juburr
+
+inputs:
+  registry:
+    description: >
+      Registry hostname to log out from. Use the same host value passed to
+      registry_login.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Helm Registry Logout
+      shell: bash
+      env:
+        PARAM_REGISTRY: ${{ inputs.registry }}
+      run: bash "${GITHUB_ACTION_PATH}/../run_script.sh" "${GITHUB_ACTION_PATH}/../../src/scripts/registry_logout.sh"
