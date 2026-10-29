@@ -58,8 +58,14 @@ RC=0
 OUTPUT=""
 
 # run_login [VAR=value ...]: runs registry_login.sh with default parameters,
-# overridden by the given assignments, and sets RC and OUTPUT.
+# overridden by the given assignments, and sets RC and OUTPUT. (Bash 4.0
+# takes an empty "$@" for an unbound variable, so the assignments are copied
+# only when there are some.)
 run_login() {
+    local -a vars=()
+    if [[ $# -gt 0 ]]; then
+        vars=("$@")
+    fi
     rm -f "${WORK}/helm-args" "${WORK}/helm-stdin"
     OUTPUT=$(env -u BASH_ENV \
         PATH="${WORK}/bin:${PATH}" \
@@ -69,7 +75,7 @@ run_login() {
         PARAM_PASSWORD="REGISTRY_PASSWORD" \
         PARAM_REGISTRY="registry.example:5000" \
         PARAM_PLAIN_HTTP="false" \
-        "$@" \
+        ${vars[@]+"${vars[@]}"} \
         bash "${SCRIPT}" 2>&1)
     RC=$?
 }

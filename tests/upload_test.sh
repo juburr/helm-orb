@@ -138,8 +138,13 @@ STDERR=""
 
 # run_upload [VAR=value ...]: runs upload.sh with default parameters,
 # overridden by the given assignments, and sets RC, STDOUT, STDERR, and
-# OUTPUT (stdout followed by stderr).
+# OUTPUT (stdout followed by stderr). (Bash 4.0 takes an empty "$@" for an
+# unbound variable, so the assignments are copied only when there are some.)
 run_upload() {
+    local -a vars=()
+    if [[ $# -gt 0 ]]; then
+        vars=("$@")
+    fi
     rm -f "${WORK}/requests" "${WORK}/received" "${WORK}/curl-args"
     env -u BASH_ENV -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy -u ALL_PROXY -u all_proxy \
         PATH="${WORK}/bin:${PATH}" \
@@ -152,7 +157,7 @@ run_upload() {
         PARAM_URL="${SERVER}/charts/" \
         PARAM_USERNAME="HELM_REPO_USERNAME" \
         PARAM_PASSWORD="HELM_REPO_PASSWORD" \
-        "$@" \
+        ${vars[@]+"${vars[@]}"} \
         bash "${SCRIPT}" > "${WORK}/stdout" 2> "${WORK}/stderr"
     RC=$?
     STDOUT=$(cat "${WORK}/stdout")

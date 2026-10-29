@@ -106,7 +106,7 @@ Install Helm, package your chart, push it. On CircleCI, add the orb to `.circlec
 version: 2.1
 
 orbs:
-  helm: juburr/helm-orb@1.1.0
+  helm: juburr/helm-orb@1.1.1
 
 jobs:
   publish_chart:
@@ -151,26 +151,26 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v7
-      - uses: juburr/helm-orb/actions/install@v1.1.0
+      - uses: juburr/helm-orb/actions/install@v1.1.1
         with:
           version: "4.3.0"
-      - uses: juburr/helm-orb/actions/package@v1.1.0
+      - uses: juburr/helm-orb/actions/package@v1.1.1
         with:
           chart_dir: charts/myservice
           chart_version: 1.0.0
           app_version: 2.4.1
       # Reads the credentials from the variables set in this step's env.
-      - uses: juburr/helm-orb/actions/registry_login@v1.1.0
+      - uses: juburr/helm-orb/actions/registry_login@v1.1.1
         env:
           REGISTRY_USERNAME: ${{ github.actor }}
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         with:
           registry: ghcr.io
-      - uses: juburr/helm-orb/actions/push@v1.1.0
+      - uses: juburr/helm-orb/actions/push@v1.1.1
         with:
           chart: ${{ env.HELM_PACKAGE }}
           remote: oci://ghcr.io/my-org/helm-charts
-      - uses: juburr/helm-orb/actions/registry_logout@v1.1.0
+      - uses: juburr/helm-orb/actions/registry_logout@v1.1.1
         with:
           registry: ghcr.io
 ```
@@ -290,7 +290,7 @@ v0.7.0 of this orb changed the default Helm `version` from 3.18.6 to 4.3.0 (Helm
 
 ```yaml
 orbs:
-  helm: juburr/helm-orb@1.1.0
+  helm: juburr/helm-orb@1.1.1
 jobs:
   publish-chart:
     docker:
@@ -401,7 +401,7 @@ Each of the orb's commands has a GitHub Action of the same name. The actions run
 
 The [Quick Start](#-quick-start) shows a complete workflow, and the [Recipes](#-recipes) use the same inputs. How the actions differ from the orb's commands:
 
-- **Versions.** An action is referenced by the repository's release tag, such as `v1.1.0`, the same tag the orb is published from. There is no moving major tag such as `v1` yet. For the strongest pinning, use the tag's commit SHA: `juburr/helm-orb/actions/push@<sha> # v1.1.0`.
+- **Versions.** An action is referenced by the repository's release tag, such as `v1.1.1`, the same tag the orb is published from. There is no moving major tag such as `v1` yet. For the strongest pinning, use the tag's commit SHA: `juburr/helm-orb/actions/push@<sha> # v1.1.1`.
 - **Credentials.** `registry_login` and `upload` take the *names* of environment variables, as the commands do. Set those variables in the `env` of the step that uses the action, from secrets, as the Quick Start does. The values reach Helm and curl on stdin, never on a command line.
 - **Environment variables.** The orb expands `$NAME` in its string parameters with the CircleCI CLI, which GitHub's runners don't have, so the actions take values as they are. Use GitHub's expressions instead, such as `chart_version: ${{ github.ref_name }}`. A leading `~` in `install_path` is still the home directory.
 - **The packaged chart's path.** `package` and `locate_chart` set `HELM_PACKAGE`, or the variable `package_env_var` names, for later steps through `GITHUB_ENV`. Read it as `${{ env.HELM_PACKAGE }}` in an input, or `${HELM_PACKAGE}` in a `run` step.
@@ -413,6 +413,8 @@ The [Quick Start](#-quick-start) shows a complete workflow, and the [Recipes](#-
 The actions are composite actions in [`actions/`](actions), next to the orb's source. Each passes its inputs to the orb's script as environment variables, and [`actions/run_script.sh`](actions/run_script.sh) gives the script what CircleCI would: a `BASH_ENV` file for the values it hands to later steps, which it then passes on through `GITHUB_PATH` and `GITHUB_ENV`.
 
 ## 📦 Upgrading
+
+Upgrading from v1.1.0 to v1.1.1? Nothing changes for pipelines or workflows: v1.1.1 only fixes two of the orb's own tests, which failed under bash 4.0.
 
 Upgrading from v1.0.0 to v1.1.0? Nothing changes for CircleCI pipelines: v1.1.0 adds [GitHub Actions](#-github-actions) for every command. The command scripts now also run without the CircleCI CLI, using values as they are.
 
